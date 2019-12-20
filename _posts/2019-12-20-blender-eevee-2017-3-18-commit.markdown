@@ -66,7 +66,7 @@ DRW_draw_pass(psl->pass);
 
 DRW_draw_pass(psl->tonemap);  
 
-跟 [blender-eevee-2017-3-17] 差不多，要了解的就是 *DRW_draw_pass(psl->depth_pass)* 
+跟 [上一篇](http://shaderstore.cn/2019/12/11/blender-eevee-2017-3-17-commit/) 差不多，要了解的就是 *DRW_draw_pass(psl->depth_pass)* 
 
 # DRW_draw_pass(psl->depth_pass);
 
