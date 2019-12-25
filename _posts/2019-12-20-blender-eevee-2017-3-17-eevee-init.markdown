@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "blender-eevee-2017-3-17-commit"
+title:      "blender-eevee-初始化"
 subtitle:   ""
 date:       2019-12-11 12:00:00
 author:     "Lzz"
@@ -12,7 +12,7 @@ tags:
 ---
 
 ## 阅读背景
-阅读前请完成 [blender-编译源码](http://shaderstore.cn/2019/12/11/blender-1/) 。这次主要是记录自己 blender eevee 的学习过程。
+阅读前请完成 [blender-编译源码](http://shaderstore.cn/2019/12/11/blender-code-source/) 。这次主要是记录自己 blender eevee 的学习过程。
 <br>
 这次的研究基于git checkout 到 blender的 ***2017/3/17 Eevee Initial commit*** 的提交上。
 

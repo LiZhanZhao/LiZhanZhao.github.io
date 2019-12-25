@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "blender-eevee-2017-3-18-commit"
+title:      "blender-eevee-简单深度图"
 subtitle:   ""
 date:       2019-12-11 12:00:00
 author:     "Lzz"
@@ -12,7 +12,7 @@ tags:
 ---
 
 ## 阅读背景
-阅读前请完成 [blender-编译源码](http://shaderstore.cn/2019/12/11/blender-1/) 。这次主要是记录自己 blender eevee 的学习过程。
+阅读前请完成 [blender-编译源码](http://shaderstore.cn/2019/12/11/blender-code-source/) 。这次主要是记录自己 blender eevee 的学习过程。
 <br>
 这次的研究基于git checkout 到 blender的 ***2017/3/18 Add Stencil test ...*** 的提交上。
 
@@ -66,7 +66,7 @@ DRW_draw_pass(psl->pass);
 
 DRW_draw_pass(psl->tonemap);  
 
-跟 [上一篇](http://shaderstore.cn/2019/12/11/blender-eevee-2017-3-17-commit/) 差不多，要了解的就是 *DRW_draw_pass(psl->depth_pass)* 
+跟 [上一篇](http://shaderstore.cn/2019/12/11/blender-eevee-2017-3-17-eevee-init/) 差不多，要了解的就是 *DRW_draw_pass(psl->depth_pass)* 
 
 # DRW_draw_pass(psl->depth_pass);
 
