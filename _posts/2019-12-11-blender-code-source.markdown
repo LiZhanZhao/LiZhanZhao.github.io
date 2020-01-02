@@ -51,3 +51,8 @@ blender的源码在 [这里](https://github.com/sobotka/blender) 可以进行 Gi
 [blender svn 地址](https://svn.blender.org/svnroot/bf-blender/trunk)
 
 
+## blender学习需要用到地址
+
+[blender material 分析](https://www.blenderguru.com/articles/cycles-shader-encyclopedia)
+
+
