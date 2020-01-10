@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "blender-eevee-灯光-1"
+title:      "blender eevee 灯光 1"
 subtitle:   ""
 date:       2019-12-25 12:00:00
 author:     "Lzz"

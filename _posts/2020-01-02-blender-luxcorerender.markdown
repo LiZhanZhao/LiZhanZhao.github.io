@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "blender-LuxCoreRender-入门"
+title:      "blender LuxCoreRender 入门"
 subtitle:   ""
 date:       2020-01-02 12:00:00
 author:     "Lzz"

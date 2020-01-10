@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "blender-编译源码"
+title:      "blender 编译源码"
 subtitle:   ""
 date:       2019-12-11 12:00:00
 author:     "Lzz"

@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "blender-eevee-初始化"
+title:      "blender eevee 初始化"
 subtitle:   ""
 date:       2019-12-20 11:00:00
 author:     "Lzz"
