@@ -10,6 +10,8 @@ catalog:    true
 tags:
     - SubstancePainter
 ---
+## Subsurface Scattering 效果
+![](/img/SP/Jade.png)
 
 ## 官网资料
 [官网文档](https://docs.substance3d.com/spdoc/subsurface-scattering-172818701.html)有比较详细的说明，下面简单记录一下。
