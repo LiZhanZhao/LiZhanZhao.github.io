@@ -11,11 +11,6 @@ tags:
     - blender
 ---
 
-## 阅读背景
-阅读前请完成 [blender-编译源码](http://shaderstore.cn/2019/12/11/blender-code-source/) 。这次主要是记录自己 blender eevee 的学习过程。
-<br>
-这次的研究基于git checkout 到 blender的 ***2017/3/17 Eevee Initial commit*** 的提交上。
-
 ## eevee 渲染过程
 
 ```c

@@ -11,17 +11,23 @@ tags:
     - blender
 ---
 
-## 阅读背景
-阅读前请完成 [blender-编译源码](http://shaderstore.cn/2019/12/11/blender-code-source/) 。这次主要是记录自己 blender eevee 的学习过程。
-<br>
-这次的研究基于git checkout 到 blender的 ***2017/3/30 Diffuse Light(2 / 2) ...*** 的提交上。
+## Unity3D 复现效果
+*Point*  
+![](/img/Eevee/Light-2/Point-Res.png)
+*Spot*  
+![](/img/Eevee/Light-2/Spot-Res.png)
+*Hemi*  
+![](/img/Eevee/Light-2/Hemi-Res.png)
+*Area*  
+![](/img/Eevee/Light-2/Area-Res.png)
 
-## 渲染过程
-
-渲染过程跟 [上一篇](http://shaderstore.cn/2019/12/25/blender-eevee-2017-3-28-eevee-diffuse-light-1/) 一样。
 
 
-## 光照计算
+## 理论
+todo...
+
+
+## 实践
 这一篇更加完善地处理了灯光计算，光源包括了 : Point ,Sun, Spot, Area, Hemi  
 <br>
 看代码 lit_surface_vert.glsl, lit_surface_frag.glsl, bsdf_common_lib.glsl, bsdf_direct_lib.glsl
@@ -591,14 +597,3 @@ void EEVEE_lights_update(EEVEE_StorageList *stl)
 - Color
 - lampSizeX (light.area_sizex * light.transform.localScale.x * 0.5f)
 - lampSizeY (light.area_sizey * light.transform.localScale.y * 0.5f)
-
-
-## Unity3D 实现结果
-*Point*  
-![](/img/Eevee/Light-2/Point-Res.png)
-*Spot*  
-![](/img/Eevee/Light-2/Spot-Res.png)
-*Hemi*  
-![](/img/Eevee/Light-2/Hemi-Res.png)
-*Area*  
-![](/img/Eevee/Light-2/Area-Res.png)
