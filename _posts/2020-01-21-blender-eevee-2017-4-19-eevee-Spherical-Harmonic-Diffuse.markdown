@@ -2,7 +2,7 @@
 layout:     post
 title:      "blender eevee Spherical Harmonic Diffuse"
 subtitle:   ""
-date:       2020-05-19 12:00:00
+date:       2020-06-01 12:00:00
 author:     "Lzz"
 header-img: "img/post-bg-nextgen-web-pwa.jpg"
 header-mask: 0.3
