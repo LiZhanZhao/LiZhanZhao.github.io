@@ -18,8 +18,6 @@ tags:
 ## 理论
 
 理解可以参考  
-<br>
-[Diffuse irradiance](https://learnopengl.com/PBR/IBL/Diffuse-irradiance)
 <br> 
 [Specular IBL](https://learnopengl.com/PBR/IBL/Specular-IBL)
 
