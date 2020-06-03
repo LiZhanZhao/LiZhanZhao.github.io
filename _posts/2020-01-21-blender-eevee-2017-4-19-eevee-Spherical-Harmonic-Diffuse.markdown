@@ -210,6 +210,23 @@ void main()
 
 ```
 
+#### 优化Spherical Harmonic计算时间
+*probe_sh_frag.glsl*
+```glsl
+uniform float lodBias;
+...
+vec4 sample = textureCubeLod(probeHdr, cubevec, lodBias);
+
+```
+
+*eevee_probes.c*
+
+```c
+/* Tweaking parameters to balance perf. vs precision */
+pinfo->shres = 16; /* Less texture fetches & reduce branches */
+pinfo->lodfactor = 4.0f; /* Improve cache reuse */
+```
+
 
 
 
@@ -360,8 +377,4 @@ vec3 spherical_harmonics_L2(vec3 N, vec3 shcoefs[9])
 ### shCoefs[0] 
 
 这个就是 上面 EEVEE_refresh_probe 中的 DRW_draw_pass(psl->probe_sh_compute) 计算出来的，DRW_draw_pass(psl->probe_sh_compute) 渲染出 9x1 大小的纹理，然后再将这9个pixel当前shCoefs的传入到 lit_surface_frag 中。
-
-
-
-
 
