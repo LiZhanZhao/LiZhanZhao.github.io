@@ -8,7 +8,7 @@ header-img: "img/post-bg-nextgen-web-pwa.jpg"
 header-mask: 0.3
 catalog:    true
 tags:
-    - SubstancePainter
+    - Other
 ---
 ## Subsurface Scattering 效果
 ![](/img/SP/Jade.png)
