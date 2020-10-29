@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Blender入门基础总结"
+title:      "Blender 入门总结"
 subtitle:   ""
 date:       2020-10-26 12:00:00
 author:     "Lzz"
