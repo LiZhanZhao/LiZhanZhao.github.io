@@ -250,3 +250,12 @@ Volume 捕捉到体积<br>
 
 ## texture paint
 - 可以画UV的贴图，在Tool里面可以设置颜色什么的
+
+## 曲线与网格转换
+- LoopTools 把四边形变成一个圆
+- Shift + A  -> Curve -> Bezler <br>
+	E 可以产生新的  <br>
+	context(物体数据)-> Shape -> FillMode  可以调整样式  <br>
+	context(物体数据)-> Geometry -> Depth 可以调整粗细  <br>
+	context(物体数据)-> Shape -> Resolution Preview U 片段数   片段数少的话就比较好编辑  <br>
+	Object菜单 -> Convert to -> Mesh From CurveMetaSurce/Text  <br>
