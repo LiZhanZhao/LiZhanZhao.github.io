@@ -259,3 +259,6 @@ Volume 捕捉到体积<br>
 	context(物体数据)-> Geometry -> Depth 可以调整粗细  <br>
 	context(物体数据)-> Shape -> Resolution Preview U 片段数   片段数少的话就比较好编辑  <br>
 	Object菜单 -> Convert to -> Mesh From CurveMetaSurce/Text  <br>
+
+## Alt + D
+- 添加新的点，线，面
