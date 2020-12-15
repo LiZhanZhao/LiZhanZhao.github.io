@@ -15,7 +15,11 @@ tags:
 
 - 主要看这个commit
 
-> 2017/5/10  * Eevee: Initial Depth Of Field commit. <br>  
+> GIT : 2017/5/10  * Eevee: Initial Depth Of Field commit. <br>  
+
+> SVN : 2017/4/5  MSVC 2015 windows x64 (vc140) Alembic 1.7.1
+
+
 
 
 
@@ -36,7 +40,7 @@ Bloom 景深效果
 
 ## 算法理论基础
 
-## 1. lens equation (成像公式)
+### 1. lens equation (成像公式)
 参考 [成像公式推导](https://baike.baidu.com/item/%E6%88%90%E5%83%8F%E5%85%AC%E5%BC%8F)
 
 推到凸透镜的成像规律 : 1/u+1/v=1/f（即 : 物距的倒数与像距的倒数之和等于焦距的倒数。）
@@ -60,7 +64,7 @@ Bloom 景深效果
 即：1/u+1/v=1/f					<br>  
 
 
-## 2. Determining a circle of confusion diameter from the object field 
+### 2. Determining a circle of confusion diameter from the object field 
 
 参考 [Circle of confusion](https://en.wikipedia.org/wiki/Circle_of_confusion#Determining_a_circle_of_confusion_diameter_from_the_object_field)
 
@@ -98,6 +102,46 @@ S1 :  focal length     <br>
 S2 :  unforcal length
  )
 
+
+### 3. linear_depth
+主要是Shader通过这个函数，把 buffer的深度，变换成 view 空间
+参考<br>  
+[linear_depth](http://web.archive.org/web/20130416194336/http://olivers.posterous.com/linear-depth-in-glsl-for-real)
+<br>  
+[projectionmatrix](http://www.songho.ca/opengl/gl_projectionmatrix.html)
+
+
+the link between eye-space Z (z_e below) and normalised device coordinates (NDC) Z (z_n below). From there, we have
+
+A   = -(zFar + zNear) / (zFar - zNear);
+B   = -2*zFar*zNear / (zFar - zNear);
+z_n = -(A*z_e + B) / z_e; // z_n in [-1, 1]
+
+Note that the value stored in the depth buffer is actually in the range [0, 1], so the depth buffer value z_b is:
+
+z_b = 0.5*z_n + 0.5; // z_b in [0, 1]
+
+If we have rendered this depth buffer to a texture and wish to access the real depth in a later shader, we must undo the non-linear mapping above:
+
+z_e = 2*zFar*zNear / (zFar + zNear - (zFar - zNear)*(2*z_b -1));
+
+(经过代入计算, 感觉自己计算出来的结果和 以上的公式 多一个负号)
+
+
+计算得到
+
+```
+float linearize_depth(float d,float zNear,float zFar)
+{
+    return zNear * zFar / (zFar + d * (zNear - zFar));
+}
+```
+
+
+
+
+
 ## Dof 算法思路
+todo...
 
 
