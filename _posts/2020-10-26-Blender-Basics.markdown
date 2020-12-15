@@ -265,3 +265,11 @@ tags:
 - 设置好 View Layer 可以用来做单个物体渲染输出，一个物体一张图片
 - 利用Compositor 可以把多个ViewLayer输出的图进行合成
 
+## 骨骼
+#### Single Bone
+- 按：Tab键，切换到 物件模式（Object Mode） 
+- 按：Shift + A，选择：Armatrue（骨架） -> Single Bone （单个骨头）
+- 选择一个骨骼，-> context data -> Viewport Display -> InFront 来把骨骼显示在最前面
+- 在 Editor Mode 里面可以 按 E 进行 子骨骼
+- 在 Pose Mode 里面是进行 K 帧 
+- 骨架跟模型产生关系, 在object mode 下，先选择 模型，再选择 骨架，然后Ctrl + P, 直接点击 Automatic Weights
