@@ -74,33 +74,41 @@ To calculate the diameter(直径) of the circle of confusion in the image plane 
 
 The blur circle, of diameter C, in the focused object plane at distance S1, is an unfocused virtual image of the object at distance S2 as shown in the diagram. It depends only on these distances and the aperture diameter A, via similar triangles, independent of the lens focal length:
 
-![](/img/Eevee/DepthOfField/Exp-01.svg) 
+![](/img/Eevee/DepthOfField/Exp-01.png) 
 (以上可以利用相似三角形计算得到)
 
 The circle of confusion in the image plane is obtained by multiplying by magnification m:
-![](/img/Eevee/DepthOfField/Exp-02.svg) 
+![](/img/Eevee/DepthOfField/Exp-02.jpg) 
 
 where the magnification m is given by the ratio of focus distances:
-![](/img/Eevee/DepthOfField/Exp-03.svg) 
+![](/img/Eevee/DepthOfField/Exp-03.jpg) 
 
 Using the lens equation we can solve for the auxiliary variable f1:
-![](/img/Eevee/DepthOfField/Exp-04.svg)
+![](/img/Eevee/DepthOfField/Exp-04.jpg)
 
 which yields
-![](/img/Eevee/DepthOfField/Exp-05.svg)
+![](/img/Eevee/DepthOfField/Exp-05.jpg)
 
 and express the magnification in terms of focused distance and focal length:
-![](/img/Eevee/DepthOfField/Exp-06.svg)
+![](/img/Eevee/DepthOfField/Exp-06.jpg)
 
 
 
 which gives the final result:
-![](/img/Eevee/DepthOfField/Exp-07.svg)
+![](/img/Eevee/DepthOfField/Exp-07.jpg)
 
 (f :  focused distance  <br>  
 S1 :  focal length     <br>  
 S2 :  unforcal length
  )
+
+
+> 这里需要注意的是，以上的只是计算 far的coc，那就是 比焦点远的物体的coc，如果是计算比焦点近的coc的话, 上面的 ![](/img/Eevee/DepthOfField/Exp-01.jpg)  
+要变成
+![](/img/Eevee/DepthOfField/Exp-10.png) 
+最后的near coc计算就是
+![](/img/Eevee/DepthOfField/Exp-11.jpg) 
+而且，通过以上我们可以得到，far coc / near coc = -1, 例如 可以计算near coc，如果计算出来的 near coc 是 负数的话，表示这个物体不是 比 焦点近，而是比 焦点远，这样就可以确定 哪一些物体在 焦点的前面，哪一些物体在焦点的后面 
 
 
 ### 3. linear_depth
