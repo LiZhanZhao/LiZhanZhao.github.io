@@ -47,6 +47,7 @@ blender的源码在 [这里](https://github.com/sobotka/blender) 可以进行 Gi
 
 >
 - SVN Show Log的时候，需要注意这个选项 ![](/img/Eevee/SourceCode/SVNLog.png), 这里可以显示所有的log
+- SVN Show Log 也可以选择范围 ![](/img/Eevee/SourceCode/SVNLog-1.png)   ![](/img/Eevee/SourceCode/SVNLog-2.png) 
 
 
 ## blender编译需要用到地址
