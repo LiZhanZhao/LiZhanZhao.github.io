@@ -386,7 +386,10 @@ static float z_neg[4][4] = {
 
 这里注意的注意的就是，*Cube Shadow Maps*在渲染6个面的时候，是针对 +x, -x, +y, -y, +z, -z轴的，没有经过任何的旋转。  
 <br> 
-perspective_m4(projmat, -la->clipsta, la->clipsta, -la->clipsta, la->clipsta, la->clipsta, la->clipend) 主要是变换z，对于x,y 不执行变化。  
+perspective_m4(projmat, -la->clipsta, la->clipsta, -la->clipsta, la->clipsta, la->clipsta, la->clipend) <br>
+参考[OpenGL Projection Matrix](http://www.songho.ca/opengl/gl_projectionmatrix.html) 主要是x 轴 ：[-la->clipsta, la->clipsta] -> [-1,1] <br>
+y 轴 ：[-la->clipsta, la->clipsta] -> [-1,1], <br>
+z 轴 ：[la->clipsta, la->clipend] -> [-1,1] <br>
 <br> 
 orthographic_m4(projmat, -wsize, wsize, -wsize, wsize, la->clipsta, la->clipend) 也差不多的道理。
 
