@@ -36,7 +36,7 @@ properties. <br>
 - svn 定位到 2017/6/8  [MSVC/2013/2015/x86/x64] Update OpenCollada to 1.6.51    (单号:61894)
 
 
-## Hair 的验证
+## 操作
 ![](/img/Eevee/Hair/2.png)
 
 
