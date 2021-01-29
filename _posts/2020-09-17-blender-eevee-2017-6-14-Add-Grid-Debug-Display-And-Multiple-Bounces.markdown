@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "blender eevee Add Grid debug display"
+title:      "blender eevee Add Grid debug display And Multiple Bounces"
 subtitle:   ""
 date:       2021-1-29 12:00:00
 author:     "Lzz"
@@ -163,3 +163,88 @@ void main()
 >
 - 这个可以参考 [Add-Irradiance-Grid-Support](http://shaderstore.cn/2021/01/28/blender-eevee-2017-6-13-Add-Irradiance-Grid-Support/)
 - 这个是基本是Iradiance的精髓了
+
+
+# Multiple Bounces
+
+## 来源
+
+- 主要看这个commit
+
+> GIT : 2017/6/15  * Eevee: Irradiance grid: support for non-blocking update and multiple bounces.<br> 
+
+> SVN : 2017/6/8  [MSVC/2013/2015/x86/x64] Update OpenCollada to 1.6.51
+
+## 渲染
+*eevee_lightprobes.c*
+```
+void EEVEE_lightprobes_refresh(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl)
+{
+	...
+	/* Reflection probes depend on diffuse lighting thus on irradiance grid */
+	const int max_bounce = 3;
+	while (pinfo->updated_bounce < max_bounce) {
+		pinfo->num_render_grid = pinfo->num_grid;
+
+		for (int i = 1; (ob = pinfo->probes_grid_ref[i]) && (i < MAX_GRID); i++) {
+			EEVEE_LightProbeEngineData *ped = EEVEE_lightprobe_data_get(ob);
+
+			if (ped->need_update) {
+				EEVEE_LightGrid *egrid = &pinfo->grid_data[i];
+				LightProbe *prb = (LightProbe *)ob->data;
+				int cell_id = ped->updated_cells;
+
+				SWAP(GPUTexture *, sldata->irradiance_pool, sldata->irradiance_rt);
+
+				/* Temporary Remove all probes. */
+				int tmp_num_render_grid = pinfo->num_render_grid;
+				int tmp_num_render_cube = pinfo->num_render_cube;
+				pinfo->num_render_cube = 0;
+
+				/* Use light from previous bounce when capturing radiance. */
+				if (pinfo->updated_bounce == 0) {
+					pinfo->num_render_grid = 0;
+				}
+
+				float pos[3];
+				lightprobe_cell_location_get(egrid, cell_id, pos);
+
+				render_scene_to_probe(sldata, psl, pos, prb->clipsta, prb->clipend);
+				diffuse_filter_probe(sldata, psl, egrid->offset + cell_id);
+
+				/* Restore */
+				pinfo->num_render_grid = tmp_num_render_grid;
+				pinfo->num_render_cube = tmp_num_render_cube;
+
+				/* To see what is going on. */
+				SWAP(GPUTexture *, sldata->irradiance_pool, sldata->irradiance_rt);
+
+				ped->updated_cells++;
+				if (ped->updated_cells >= ped->num_cell) {
+					ped->need_update = false;
+				}
+
+				/* Only do one probe per frame */
+				DRW_viewport_request_redraw();
+				return;
+			}
+		}
+
+		pinfo->updated_bounce++;
+		pinfo->num_render_grid = pinfo->num_grid;
+
+		if (pinfo->updated_bounce < max_bounce) {
+			/* Retag all grids to update for next bounce */
+			for (int i = 1; (ob = pinfo->probes_grid_ref[i]) && (i < MAX_GRID); i++) {
+				EEVEE_LightProbeEngineData *ped = EEVEE_lightprobe_data_get(ob);
+				ped->need_update = true;
+				ped->updated_cells = 0;
+			}
+			SWAP(GPUTexture *, sldata->irradiance_pool, sldata->irradiance_rt);
+		}
+	}
+	...
+}
+```
+>
+- 个人理解 Multiple Bounces 的实现方式就是渲染多次, 例如Iradiance Grid的一个cell进行拍摄cubemap的时候,第一次bounes的时候,物体是没有受到Iradiance影响的,得到的cubemap是没有带Iradiance信息的,而第二次bounes的时候,那就是第二次拍摄cubemap的时候,物体是带有Iradiance的,那么个人理解这样就可以实现 Multiple Bounces
