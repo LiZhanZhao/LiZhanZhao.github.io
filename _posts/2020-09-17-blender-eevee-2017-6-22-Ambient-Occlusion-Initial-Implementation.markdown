@@ -134,7 +134,7 @@ We can calculate the ambient occlusion integral as a double integral in polar co
 (用极坐标表示积分公式)<br><br>
 The inner integral integrates the visibility for a slice of the hemisphere, as you can see 
 in the left,and the outer integral swipes this slice to cover the full hemisphere<br>
-(个人理解，受光点会收到周围360度的入射光射入，这360度入射光可以形成一个半圆，内部的积分的意思就是，先取半圆的一片，1角度为一片半圆，就是 a slice of the hemisphere 的意思, 计算出 a slice of the hemisphere 的 值，然后在进行外部的积分，0-180度，每一度一片半圆积分起来)
+(个人理解，受光点会收到周围360度的入射光射入，这360度入射光可以形成一个半球，内部的积分的意思就是，先取半球的一片，1角度为一片半球，就是 a slice of the hemisphere 的意思, 计算出 a slice of the hemisphere 的 值，然后在进行外部的积分，0-180度，每一度一片半球积分起来)
 
 ![](/img/Eevee/GTAO/PDF/4.png)<br>
 
@@ -429,4 +429,22 @@ float gtao_multibounce(float visibility, vec3 albedo)
 >
 - 想要了解到上面的GTAO的算法思路，一定要看 [这里](http://blog.selfshadow.com/publications/s2016-shading-course/activision/s2016_pbs_activision_occlusion.pdf), 这个pdf把思路都整的明明白白。
 <br>
-- 
+
+
+## 个人理解
+![](/img/Eevee/GTAO/Down.png)
+![](/img/Eevee/GTAO/Front.png)
+>
+- 上面的代码其实基本都是套用pdf里面的公式，首先这里的AO计算并不是基于后处理的，而是基于物体本身，在物体的ps进行。
+<br><br>
+- 首先我们计算h1 和 h2, h1 和 h2 都是一个角度，我们在什么空间中想象这个h1 和 h2比较好？这里就是<font color=Blue>俯视图</font>想象比较清晰点，在Camera空间中，物体上的一点和他左右两边的点进行比较深度，就可以判断到左右两边的点有没有比自己更加靠近Camera，筛选中左右两边最靠近Camera的点，计算自己和这些点的角度，左右两边最大的角度就是h1和h2。(Camera forward 就是 Z 轴，Up 是 Y 轴)
+<br><br>
+- 值得主要的是，我们会考虑这个点的半球上的所有的方向，这里需要积分，我们这里半球是XY平面为底，Z方向为高的，也就是这个半球是球顶是对着Camera的，然后这个半球是怎么积分出来的，一片半球，就是xz平面的半圆，绕Z轴，积分0~180度得到的半球。
+<br><br>
+- 计算h1和h2代码的做法就是，渲染物体上的一个点的时候，计算这个点的屏幕空间坐标s，view空间坐标v，然后s进行各自左右两边的偏移，偏移得到左边和右边的屏幕空间坐标，sl和sr，然后通过sl和sr进行采样深度图，这个深度图保存了minmax depth texture，可以得到max depth value，得到了深度值之
+后，就可以计算出 view space 的 坐标vr，vl，然后利用 v 和 vr ，vl ，计算出h1 和 h2，
+<br><br>
+- 计算出来h1和h2之后，就要考虑Normal的问题，这里 Projecting Normal 投影法线，这个法线是世界空间的法线，法线是直接投影到一片半球上，一片半球是xz平面上的，然后一片半球，也就是一个plane，这个plane的法线就是xy平面上的，那么 vec3 h = vec3(t_phi.y, -t_phi.x, 0.0); 就是这个一片半球的法线，vec3 t = vec3(-t_phi, 0.0); 是一片半球的切线，vec3 n_proj = normal - h * dot(h, normal); 计算这个点的法线在plane上的投影。
+<br><br>
+- 剩下的其实就是套用公式，计算出一边半球的ao值，然后整一个半球的呢，其实就是模拟积分使用蒙特卡洛方式来做，for循环，绕z轴0-180度都形成一片半球，累加起来再平均。
+
