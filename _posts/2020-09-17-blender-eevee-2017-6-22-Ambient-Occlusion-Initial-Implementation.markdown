@@ -448,3 +448,58 @@ float gtao_multibounce(float visibility, vec3 albedo)
 <br><br>
 - 剩下的其实就是套用公式，计算出一边半球的ao值，然后整一个半球的呢，其实就是模拟积分使用蒙特卡洛方式来做，for循环，绕z轴0-180度都形成一片半球，累加起来再平均。
 
+
+
+## Multibounce Approximation
+
+### 来源
+
+- 主要看这个commit
+
+> GIT : 2017/6/22  * Eevee: Ambient Occlusion: Enable Multibounce approximation and Change influence factor.
+<br> <br> 
+Making the influence a power for easy tuning. Works like a contrast knob.<br> 
+
+
+> SVN : 2017/6/8  [MSVC/2013/2015/x86/x64] Update OpenCollada to 1.6.51
+
+### 效果
+![](/img/Eevee/GTAO/3.png)
+
+### Shader
+
+*ambient_occlusion_lib.glsl*
+```
+/* Multibounce approximation base on surface albedo.
+ * Page 78 in the .pdf version. */
+float gtao_multibounce(float visibility, vec3 albedo)
+{
+	/* Median luminance. Because Colored multibounce looks bad. */
+	float lum = albedo.x * 0.3333;
+	lum += albedo.y * 0.3333;
+	lum += albedo.z * 0.3333;
+
+	float a =  2.0404 * lum - 0.3324;
+	float b = -4.7951 * lum + 0.6417;
+	float c =  2.7552 * lum + 0.6903;
+
+	float x = visibility;
+	return max(x, ((x * a + b) * x + c) * x);
+}
+```
+
+*lit_surface_frag.glsl*
+
+```
+vec3 eevee_surface_lit(vec3 world_normal, vec3 albedo, vec3 f0, float roughness, float ao)
+{
+	vec3 indirect_radiance =
+	        spec_accum.rgb * F_ibl(f0, brdf_lut) * float(specToggle) * specular_occlusion(dot(sd.N, sd.V), final_ao, roughness) +
+	        diff_accum.rgb * albedo * gtao_multibounce(final_ao, albedo);
+
+	return radiance + indirect_radiance;
+}
+```
+>
+- 最主要的是这个 gtao_multibounce 函数来模拟Multibounce效果
+- 理论就参考 [这里](http://blog.selfshadow.com/publications/s2016-shading-course/activision/s2016_pbs_activision_occlusion.pdf) 的 Page 78
