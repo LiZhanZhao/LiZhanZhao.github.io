@@ -15,7 +15,7 @@ tags:
 
 - 主要看这个commit
 
-> GIT : 2017/6/27  * Eevee :  Add support for volumetrics in node tree.
+> GIT : 2017/7/4  * Eevee :  Add support for volumetrics in node tree.
 
 > Only volume scatter is implemented for now.
 
@@ -34,7 +34,7 @@ tags:
 
 ## 编译
 - 重新生成SLN
-- git 定位到  2017/6/27  * Eevee : Add support for volumetrics in node tree .<br> 
+- git 定位到  2017/7/4  * Eevee : Add support for volumetrics in node tree .<br> 
 - svn 定位到 2017/6/8  [MSVC/2013/2015/x86/x64] Update OpenCollada to 1.6.51    (单号:61894)
 
 ## 渲染前
