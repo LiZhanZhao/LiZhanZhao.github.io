@@ -31,7 +31,7 @@ Alpha Clip 和 Alpha Hashed transparency的实现
 
 ## 编译
 - 重新生成SLN
-- git 定位到  2017/7/9  * Eevee : Volumetrics: Add settings .<br> 
+- git 定位到  2017/7/9  * Eevee : Add support for Alpha clip and Hashed Alpha transparency .<br> 
 - svn 定位到 2017/6/8  [MSVC/2013/2015/x86/x64] Update OpenCollada to 1.6.51    (单号:61894)
 
 
