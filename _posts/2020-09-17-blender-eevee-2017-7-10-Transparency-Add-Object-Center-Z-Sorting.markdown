@@ -32,7 +32,7 @@ tags:
 
 ## 编译
 - 重新生成SLN
-- git 定位到  2017/7/10  * Eevee: Transparency: Add support for blend ADD and MULTIPLY .<br> 
+- git 定位到  2017/7/10  * Eevee: Transparency: Add object center Z sorting .<br> 
 - svn 定位到 2017/6/8  [MSVC/2013/2015/x86/x64] Update OpenCollada to 1.6.51    (单号:61894)
 
 ## 渲染
