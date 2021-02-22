@@ -432,6 +432,10 @@ void main()
 ## 作用
 透明物体渲染排序
 
+## 效果
+![](/img/Eevee/BlendAddAndMultiply/4.png)
+![](/img/Eevee/BlendAddAndMultiply/5.png)
+
 ## 渲染
 
 *eevee_engine.c*
