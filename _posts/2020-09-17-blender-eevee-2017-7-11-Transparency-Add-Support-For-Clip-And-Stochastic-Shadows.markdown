@@ -443,3 +443,87 @@ void main()
 ```
 >
 - 主要的是Alpha Clip 来进行discard，达到Prepass。
+
+
+<br><br><br>
+
+# Transparency Add transparent Shadow method UI.
+
+## 来源
+
+- 主要看这个commit
+
+> GIT : 2017/7/12  *   Eevee: Transparency: Fix crash when using transparent shadows .<br> 
+ 
+> SVN : 2017/6/8  [MSVC/2013/2015/x86/x64] Update OpenCollada to 1.6.51
+		
+## 效果
+
+![](/img/Eevee/AlphaClipShadow/4.png)
+
+
+## 作用
+透明物体有影子效果
+
+## 编译
+- 重新生成SLN
+
+- git 定位到 2017/7/12   Eevee: Transparency: Fix crash when using transparent shadows.<br>
+- svn 定位到 2017/6/8  [MSVC/2013/2015/x86/x64] Update OpenCollada to 1.6.51    (单号:61894)
+
+
+## 注意
+主要的代码在 2017/7/11  *  Eevee: Transparency: Add transparent Shadow method UI .<br> 
+
+## Code
+*eevee_materials.c*
+```
+void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sldata, Object *ob)
+{
+	...
+	/* Get per-material split surface */
+		struct Gwn_Batch **mat_geom = DRW_cache_object_surface_material_get(ob, gpumat_array, materials_len);
+		if (mat_geom) {
+			for (int i = 0; i < materials_len; ++i) {
+				Material *ma = give_current_material(ob, i + 1);
+
+				if (ma == NULL)
+					ma = &defmaterial;
+
+				/* Shading pass */
+				ADD_SHGROUP_CALL(shgrp_array[i], ob, mat_geom[i]);
+
+				/* Depth Prepass */
+				ADD_SHGROUP_CALL_SAFE(shgrp_depth_array[i], ob, mat_geom[i]);
+				ADD_SHGROUP_CALL_SAFE(shgrp_depth_clip_array[i], ob, mat_geom[i]);
+
+				/* Shadow Pass */
+				if (ma->blend_method != MA_BM_SOLID) {
+					struct GPUMaterial *gpumat;
+					switch (ma->blend_shadow) {
+						case MA_BS_SOLID:
+							EEVEE_lights_cache_shcaster_add(sldata, psl, mat_geom[i], ob->obmat);
+							break;
+						case MA_BS_CLIP:
+							gpumat = EEVEE_material_mesh_depth_get(scene, ma, false, true);
+							EEVEE_lights_cache_shcaster_material_add(sldata, psl, gpumat, mat_geom[i], ob->obmat, &ma->alpha_threshold);
+							break;
+						case MA_BS_HASHED:
+							gpumat = EEVEE_material_mesh_depth_get(scene, ma, true, true);
+							EEVEE_lights_cache_shcaster_material_add(sldata, psl, gpumat, mat_geom[i], ob->obmat, NULL);
+							break;
+						case MA_BS_NONE:
+						default:
+							break;
+					}
+				}
+				else {
+					EEVEE_lights_cache_shcaster_add(sldata, psl, mat_geom[i], ob->obmat);
+				}
+			}
+		}
+	...
+}
+```
+>
+- /* Shadow Pass */  部分代码，结合上面的应该不难理解，就是 ma->blend_method != MA_BM_SOLID 的时候，都进行prepass
