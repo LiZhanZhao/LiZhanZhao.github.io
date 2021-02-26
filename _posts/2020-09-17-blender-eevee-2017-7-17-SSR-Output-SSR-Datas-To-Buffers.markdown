@@ -17,6 +17,10 @@ tags:
 
 > GIT : 2017/7/17  * Eevee: SSR: Output ssr datas to buffers.<br> 
 
+> Output in 2 buffers Normals, Specular Color and roughness.
+This way we can raytrace in a defered fashion and blend the exact contribution of the specular lobe on top of the opaque pass.
+
+
 > SVN : 2017/6/8  [MSVC/2013/2015/x86/x64] Update OpenCollada to 1.6.51
 		
 ## 效果
