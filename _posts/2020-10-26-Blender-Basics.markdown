@@ -273,3 +273,13 @@ tags:
 - 在 Editor Mode 里面可以 按 E 进行 子骨骼
 - 在 Pose Mode 里面是进行 K 帧 
 - 骨架跟模型产生关系, 在object mode 下，先选择 模型，再选择 骨架，然后Ctrl + P, 直接点击 Automatic Weights
+
+
+
+## Shader
+
+### View Node
+添加 the node wrangler addon. Once the node wrangler addon is enabled, the addon creates such a node when pressing Ctrl+Shift + RMB on the node.
+
+### Detach Links 
+Alt-D
