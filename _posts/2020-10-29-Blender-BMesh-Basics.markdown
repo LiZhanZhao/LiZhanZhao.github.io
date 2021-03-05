@@ -8,7 +8,7 @@ header-img: "img/post-bg-nextgen-web-pwa.jpg"
 header-mask: 0.3
 catalog:    true
 tags:
-    - blender
+    - blender 应用
 ---
 
 ## 物体模式 -> 编辑模式
