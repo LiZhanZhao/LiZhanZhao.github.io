@@ -149,7 +149,7 @@ void main()
 
 ```
 >
-- 这里最主要就是下面的函数, 主要就是重新计算hit_pos点的屏幕坐标，然后再利用这个坐标进行采样colorBuffer
+- 这里最主要就是下面的函数
 ```
 float ray_length = texelFetch(hitBuffer, halfres_texel, 0).r;
 if (ray_length != -1.0) {
@@ -159,7 +159,16 @@ if (ray_length != -1.0) {
 	spec_accum.xyz = textureLod(colorBuffer, ref_uvs, 0.0).rgb * spec_accum.a;
 }
 ```
-- PastViewProjectionMatrix 是上一帧的VP矩阵
+- 先计算ray碰撞到的物体，交点 hit_pos, 这个hit_pos是世界坐标位置。<br><br>
+- get_reprojected_reflection 函数 利用 PastViewProjectionMatrix ，上一帧的 VP矩阵 进行变换 hit_pos, 得到 hit_pos 在上一帧 屏幕空间UV 坐标 ref_uvs 。<br><br>
+- screen_border_mask 函数 利用  ViewProjectionMatrix 当前帧的VP矩阵进行变换hit_pos, 得到 hit_pos 在当前帧的 屏幕空间UV 坐标，所以现在得到了 hit_pos 的上一帧和当前帧 的 屏幕空间UV 坐标。<br><br>
+- screen_border_mask 函数 里面的 
+```
+hit_co = smoothstep(margin, atten, hit_co) * (1 - smoothstep(1.0 - atten, 1.0 - margin, hit_co));
+vec2 atten_fac = min(hit_co.xy, hit_co.zw);
+```
+hit_co 在 [0.002, 0.052] 范围是 [0, 1], 少于 0.002 是0, 大于 0.052 是 1, 然后在 [1 - 0.052, 1 - 0.002] 范围 是 [1, 0], 然后 小于 1 - 0.052 的时候是 1， 大于 1 - 0.002 的时候是 0, 也就是 像素在图片中是 1，在图片外是 0，边界是 1 过渡到 0, 所以 atten_fac 得到的 数据就是，考虑到上一帧和当前帧的屏幕UV坐标，uv坐标在屏幕边界是0-1，屏幕内部是1，屏幕外是0 。
+
 
 
 ## PastViewProjectionMatrix
