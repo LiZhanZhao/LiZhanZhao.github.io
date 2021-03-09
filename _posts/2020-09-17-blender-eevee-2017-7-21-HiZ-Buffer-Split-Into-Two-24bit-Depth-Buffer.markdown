@@ -23,6 +23,7 @@ tags:
 
 
 ## 作用
+以前的minMaxDepthTex的r记录的是 depth的min值，g保存的是depth的max值，现在单独分开两张RT单独保存 dpth的min和max
 
 
 ## 编译
@@ -44,7 +45,7 @@ static void EEVEE_draw_scene(void *vedata)
 }
 ```
 >
-- 优化 minmax depth 
+- 优化 minmax depth 的存储方式
 
 ## EEVEE_create_minmax_buffer
 
@@ -177,6 +178,8 @@ void EEVEE_create_minmax_buffer(EEVEE_Data *vedata, GPUTexture *depth_src)
 - 利用 psl->maxz_downdepth_ps 把东西渲染到 txl->maxzbuffer RT 上, psl->maxz_downdepth_ps 使用 effect_minmaxz_frag.glsl，定义了 #define MAX_PASS 和 #define INPUT_DEPTH , 这个是拿 e_data.depth_src 进行downdepth。
 <br><br>
 - txl->maxzbuffer RT 利用 psl->maxz_downlevel_ps 进行构造mipmap, psl->maxz_downlevel_ps 使用 effect_minmaxz_frag.glsl，定义了 #define MAX_PASS , 这个是拿 stl->g_data->maxzbuffer 进行downdepth。
+<br><br>
+- 总的来说就是，minzbuffer RT 先进行 downdepth，再进行dowlevel, maxzbuffer RT 也是一样的道理。
 
 <br><br>
 
@@ -240,6 +243,10 @@ void main()
 	gl_FragDepth = val;
 }
 ```
+>
+- 上面的其实都比较好理解，minzbuffer RT 的一个像素保存就是右，下，右下，自身，4个深度值最小值，maxbuffer RT 的是右，下，右下，自身，4个深度值最大值，对于mipmap是按照同样的方式进行构造，只不过是宽高不一样而已。
+<br><br>
+- 这里跟之前有不太一样的就是，min和max depth 值分开了。
 
 <br><br>
 
@@ -280,4 +287,4 @@ static void add_standard_uniforms(DRWShadingGroup *shgrp, EEVEE_SceneLayerData *
 }
 ```
 >
-- DRW_shgroup_uniform_buffer(shgrp, "minMaxDepthTex", &vedata->txl->maxzbuffer); 主要是SSAO计算要用到
+- DRW_shgroup_uniform_buffer(shgrp, "minMaxDepthTex", &vedata->txl->maxzbuffer); 主要是SSAO计算要用到，最值传入了单独的depth max RT
