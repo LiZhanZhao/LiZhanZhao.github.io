@@ -288,3 +288,216 @@ static void add_standard_uniforms(DRWShadingGroup *shgrp, EEVEE_SceneLayerData *
 ```
 >
 - DRW_shgroup_uniform_buffer(shgrp, "minMaxDepthTex", &vedata->txl->maxzbuffer); 主要是SSAO计算要用到，最值传入了单独的depth max RT
+
+
+
+# 2. Make MinmaxZ compatible with textureArray
+
+
+## 来源
+
+- 主要看这个commit
+
+> GIT : 2017/7/24  *   Eevee: Make MinmaxZ compatible with textureArray .<br> 
+
+> SVN : 2017/6/8  [MSVC/2013/2015/x86/x64] Update OpenCollada to 1.6.51
+
+
+## 作用
+min max 可以处理 textureArray, 那数据的哪一个元素作为数据源进行采样。
+
+
+## 编译
+- 重新生成SLN
+- git 定位到  2017/7/24  * Eevee: Make MinmaxZ compatible with textureArray.<br> 
+- svn 定位到 2017/6/8  [MSVC/2013/2015/x86/x64] Update OpenCollada to 1.6.51    (单号:61894)
+
+
+
+<br><br>
+
+## 渲染前
+
+*eevee_effects.c*
+```
+void EEVEE_effects_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
+{
+	...
+	e_data.minz_downdepth_layer_sh = DRW_shader_create_fullscreen(datatoc_effect_minmaxz_frag_glsl, "#define MIN_PASS\n"
+																									"#define LAYERED\n"
+																									"#define INPUT_DEPTH\n");
+	e_data.maxz_downdepth_layer_sh = DRW_shader_create_fullscreen(datatoc_effect_minmaxz_frag_glsl, "#define MAX_PASS\n"
+																									"#define LAYERED\n"
+																									"#define INPUT_DEPTH\n");
+	...
+}
+
+void EEVEE_effects_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
+{
+	...
+	psl->minz_downdepth_layer_ps = DRW_pass_create("HiZ Min Copy DepthLayer Halfres", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_ALWAYS);
+	grp = DRW_shgroup_create(e_data.minz_downdepth_layer_sh, psl->minz_downdepth_layer_ps);
+	DRW_shgroup_uniform_buffer(grp, "depthBuffer", &e_data.depth_src);
+	DRW_shgroup_uniform_int(grp, "depthLayer", &e_data.depth_src_layer, 1);
+	DRW_shgroup_call_add(grp, quad, NULL);
+
+	psl->maxz_downdepth_layer_ps = DRW_pass_create("HiZ Max Copy DepthLayer Halfres", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_ALWAYS);
+	grp = DRW_shgroup_create(e_data.maxz_downdepth_layer_sh, psl->maxz_downdepth_layer_ps);
+	DRW_shgroup_uniform_buffer(grp, "depthBuffer", &e_data.depth_src);
+	DRW_shgroup_uniform_int(grp, "depthLayer", &e_data.depth_src_layer, 1);
+	DRW_shgroup_call_add(grp, quad, NULL);
+	...
+}
+
+
+void EEVEE_create_minmax_buffer(EEVEE_Data *vedata, GPUTexture *depth_src, int layer)
+{
+	EEVEE_PassList *psl = vedata->psl;
+	EEVEE_FramebufferList *fbl = vedata->fbl;
+	EEVEE_StorageList *stl = vedata->stl;
+	EEVEE_TextureList *txl = vedata->txl;
+
+	e_data.depth_src = depth_src;
+
+	/* Copy depth buffer to min texture top level */
+	DRW_framebuffer_texture_attach(fbl->downsample_fb, stl->g_data->minzbuffer, 0, 0);
+	DRW_framebuffer_bind(fbl->downsample_fb);
+	if (layer >= 0) {
+		e_data.depth_src_layer = layer;
+		DRW_draw_pass(psl->minz_downdepth_layer_ps);
+	}
+	else {
+		DRW_draw_pass(psl->minz_downdepth_ps);
+	}
+	DRW_framebuffer_texture_detach(stl->g_data->minzbuffer);
+
+	/* Create lower levels */
+	DRW_framebuffer_recursive_downsample(fbl->downsample_fb, stl->g_data->minzbuffer, 8, &min_downsample_cb, vedata);
+
+	/* Copy depth buffer to max texture top level */
+	DRW_framebuffer_texture_attach(fbl->downsample_fb, txl->maxzbuffer, 0, 0);
+	DRW_framebuffer_bind(fbl->downsample_fb);
+	if (layer >= 0) {
+		e_data.depth_src_layer = layer;
+		DRW_draw_pass(psl->maxz_downdepth_layer_ps);
+	}
+	else {
+		DRW_draw_pass(psl->maxz_downdepth_ps);
+	}
+	DRW_framebuffer_texture_detach(txl->maxzbuffer);
+
+	/* Create lower levels */
+	DRW_framebuffer_recursive_downsample(fbl->downsample_fb, txl->maxzbuffer, 8, &max_downsample_cb, vedata);
+}
+```
+>
+- EEVEE_create_minmax_buffer 的参数 layer 如果是大于0 的话，就表示要处理数组，那么渲染使用 maxz_downdepth_layer_ps, 那就是 effect_minmaxz_frag.glsl  和 开启 #define LAYERED
+- EEVEE_create_minmax_buffer 的参数 layer 如果是小于0 的话，就不用处理数组，就不用开启 #define LAYERED
+
+<br><br>
+
+
+
+## Shader
+
+*effect_minmaxz_frag.glsl*
+```
+/**
+ * Shader that downsample depth buffer,
+ * saving min and max value of each texel in the above mipmaps.
+ * Adapted from http://rastergrid.com/blog/2010/10/hierarchical-z-map-based-occlusion-culling/
+ **/
+
+#ifdef LAYERED
+uniform sampler2DArray depthBuffer;
+uniform int depthLayer;
+#else
+uniform sampler2D depthBuffer;
+#endif
+
+float sampleLowerMip(ivec2 texel)
+{
+#ifdef LAYERED
+	return texelFetch(depthBuffer, ivec3(texel, depthLayer), 0).r;
+#else
+	return texelFetch(depthBuffer, texel, 0).r;
+#endif
+}
+
+void minmax(inout float out_val, float in_val)
+{
+#ifdef MIN_PASS
+	out_val = min(out_val, in_val);
+#else /* MAX_PASS */
+	out_val = max(out_val, in_val);
+#endif
+}
+
+void main()
+{
+	ivec2 texelPos = ivec2(gl_FragCoord.xy);
+	ivec2 mipsize = textureSize(depthBuffer, 0).xy;
+
+#ifndef COPY_DEPTH
+	texelPos *= 2;
+#endif
+
+	float val = sampleLowerMip(texelPos);
+#ifndef COPY_DEPTH
+	minmax(val, sampleLowerMip(texelPos + ivec2(1, 0)));
+	minmax(val, sampleLowerMip(texelPos + ivec2(1, 1)));
+	minmax(val, sampleLowerMip(texelPos + ivec2(0, 1)));
+
+	/* if we are reducing an odd-width texture then fetch the edge texels */
+	if (((mipsize.x & 1) != 0) && (int(gl_FragCoord.x) == mipsize.x-3)) {
+		/* if both edges are odd, fetch the top-left corner texel */
+		if (((mipsize.y & 1) != 0) && (int(gl_FragCoord.y) == mipsize.y-3)) {
+			minmax(val, sampleLowerMip(texelPos + ivec2(-1, -1)));
+		}
+		minmax(val, sampleLowerMip(texelPos + ivec2(0, -1)));
+		minmax(val, sampleLowerMip(texelPos + ivec2(1, -1)));
+	}
+	/* if we are reducing an odd-height texture then fetch the edge texels */
+	else if (((mipsize.y & 1) != 0) && (int(gl_FragCoord.y) == mipsize.y-3)) {
+		minmax(val, sampleLowerMip(texelPos + ivec2(0, -1)));
+		minmax(val, sampleLowerMip(texelPos + ivec2(1, -1)));
+	}
+#endif
+
+	gl_FragDepth = val;
+}
+```
+>
+- 这里比较重要的是 LAYERED 宏，如果开启了 LAYERED 宏的话，那么处理的就是 sampler2DArray，采样的也是根据数组的第几个元素进行采样, texelFetch(depthBuffer, ivec3(texel, depthLayer), 0).r;
+- depthLayer 就是决定数组的第几个元素。
+
+
+## 应用
+
+*eevee_engine.c*
+```
+static void EEVEE_draw_scene(void *vedata)
+{
+	...
+	/* Create minmax texture */
+	EEVEE_create_minmax_buffer(vedata, dtxl->depth, -1);
+	...
+}
+```
+>
+- 在主渲染管线上, EEVEE_create_minmax_buffer 的 layer 为 -1, 表示不使用 Array。
+
+
+*eevee_lightprobes.c*
+```
+static void render_scene_to_planar(EEVEE_Data *vedata, int layer,
+        float (*viewmat)[4], float (*persmat)[4],
+        float clip_plane[4])
+{
+	...
+	EEVEE_create_minmax_buffer(vedata, tmp_planar_depth, layer);
+	...
+}
+```
+>
+- 在planar reflection 的渲染上，使用了 layer, 表示 使用 array
