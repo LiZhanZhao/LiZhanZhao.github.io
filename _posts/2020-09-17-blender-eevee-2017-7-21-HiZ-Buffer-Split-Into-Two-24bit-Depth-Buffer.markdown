@@ -289,7 +289,7 @@ static void add_standard_uniforms(DRWShadingGroup *shgrp, EEVEE_SceneLayerData *
 >
 - DRW_shgroup_uniform_buffer(shgrp, "minMaxDepthTex", &vedata->txl->maxzbuffer); 主要是SSAO计算要用到，最值传入了单独的depth max RT
 
-
+<br><br>
 
 # 2. Make MinmaxZ compatible with textureArray
 
@@ -487,6 +487,7 @@ static void EEVEE_draw_scene(void *vedata)
 >
 - 在主渲染管线上, EEVEE_create_minmax_buffer 的 layer 为 -1, 表示不使用 Array。
 
+<br><br>
 
 *eevee_lightprobes.c*
 ```
