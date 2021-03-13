@@ -36,7 +36,7 @@ This has 2 advantages:
 ![](/img/Eevee/SSR/08/2.png)
 
 ## 作用
-SSR 考虑 Planar Probes 的影响, 假如 Planar Probes 的效果感觉还可以
+SSR 考虑 Planar Probes 的影响, 加入 Planar Probes 的效果感觉还可以
 
 ## 编译
 - 重新生成SLN
@@ -48,8 +48,6 @@ SSR 考虑 Planar Probes 的影响, 假如 Planar Probes 的效果感觉还可�
 ## Shader
 
 
-
-
 ### 1. STEP_RAYTRACE
 
 *effect_ssr_frag.glsl*
@@ -57,19 +55,25 @@ SSR 考虑 Planar Probes 的影响, 假如 Planar Probes 的效果感觉还可�
 void main()
 {
 	...
-	vec3 worldPosition = transform_point(ViewMatrixInverse, viewPosition);
+	// 后处理，屏幕空间深度 计算出来的每一个像素对应的 worldPosition
+	vec3 worldPosition = transform_point(ViewMatrixInverse, viewPosition);   
+	// 每一个像素对应的 worldNormal 
 	vec3 wN = mat3(ViewMatrixInverse) * N;
 
 	/* Planar Reflections */
 	for (int i = 0; i < MAX_PLANAR && i < planar_count; ++i) {
 		PlanarData pd = planars_data[i];
 
+		// 在 plane 的 正面，而且在 clip 空间中
 		float fade = probe_attenuation_planar(pd, worldPosition, wN);
 
 		if (fade > 0.5) {
 			/* Find view vector / reflection plane intersection. */
 			/* TODO optimize, use view space for all. */
-			vec3 tracePosition = line_plane_intersect(worldPosition, cameraVec, pd.pl_plane_eq);			//计算出 reflection probe 上的交点
+			
+			// cameraVec = normalize(cameraPos - worldPosition) 点指向相机
+			// 计算worldPosition指向相机的ray 与 probe 平面的交点 tracePosition
+			vec3 tracePosition = line_plane_intersect(worldPosition, cameraVec, pd.pl_plane_eq);
 			tracePosition = transform_point(ViewMatrix, tracePosition);
 			vec3 planeNormal = mat3(ViewMatrix) * pd.pl_normal;
 
@@ -92,6 +96,7 @@ void main()
 ```
 >
 - 先考虑有没有 Planar Reflections Probe, 优先考虑 do_planar_ssr, 如果没有才考虑 do_ssr
+- 思路就是，利用 物体的 worldPosition 到 Camera 的 ray，和 Probe Plane ，计算出 Probe Plane 的交点，然后再利用 V 和 物体点的N，计算出反射线 R，利用 在交点发出 R 的射线，是否碰撞到 物体，保存 hitData
 
 <br><br>
 
@@ -100,11 +105,12 @@ void main()
 ```
 float probe_attenuation_planar(PlanarData pd, vec3 W, vec3 N)
 {
+	// 是否在plane的正面
 	/* Normal Facing */
-	float fac = saturate(dot(pd.pl_normal, N) * pd.pl_facing_scale + pd.pl_facing_bias);		// 是否在plane的正面
+	float fac = saturate(dot(pd.pl_normal, N) * pd.pl_facing_scale + pd.pl_facing_bias);		
 
 	/* Distance from plane */
-	fac *= saturate(abs(dot(pd.pl_plane_eq, vec4(W, 1.0))) * pd.pl_fade_scale + pd.pl_fade_bias);		//是否在plane的参数distance范围内
+	fac *= saturate(abs(dot(pd.pl_plane_eq, vec4(W, 1.0))) * pd.pl_fade_scale + pd.pl_fade_bias);	
 
 	/* Fancy fast clipping calculation */
 	vec2 dist_to_clip;
@@ -178,6 +184,7 @@ vec3 line_plane_intersect(vec3 lineorigin, vec3 linedirection, vec4 plane)
 - line_plane_intersect 计算出来的就是 在 ray 在 plane 上的交点，world空间的
 - vec3 tracePosition = line_plane_intersect(worldPosition, cameraVec, pd.pl_plane_eq); 那么这里假设 平面在 reflection probe 范围内，这里计算的就是，平面上的点作为ray的起点，cameraVec作为 ray 的方向，这条ray和 reflection probe进行相交，计算出 reflection probe 上的交点
 
+<br>
 
 #### c. do_planar_ssr
 
@@ -185,9 +192,11 @@ vec3 line_plane_intersect(vec3 lineorigin, vec3 linedirection, vec4 plane)
 vec4 do_planar_ssr(int index, vec3 V, vec3 N, vec3 planeNormal, vec3 viewPosition, float a2, vec3 rand)
 {
 	float pdf;
+	// R 是 v(视觉) 和 N(物体点的法线) 的反射 ray
 	vec3 R = generate_ray(V, N, a2, rand, pdf);
 
-	R = reflect(R, planeNormal);					// 这里是判断 R 经过 plane 反射 之后, 还是不是在plane 的 正面
+	// 这里是判断 R 再经过 plane 反射 之后, 还 是不是 在plane 的 正面
+	R = reflect(R, planeNormal);					
 	pdf *= -1.0; /* Tag as planar ray. */
 
 	/* If ray is bad (i.e. going below the plane) do not trace. */
@@ -196,8 +205,10 @@ vec4 do_planar_ssr(int index, vec3 V, vec3 N, vec3 planeNormal, vec3 viewPositio
 	}
 
 	float hit_dist;
-	if (abs(dot(-R, V)) < 0.9999) {						// 这里其实就是判断是否R 和 V 重合,节省计算
-		hit_dist = raycast(index, viewPosition, R, rand.x);			// viewPosition 是planar probe 上的点, 沿着 R 可以碰到什么物体
+	// 这里其实就是判断是否R 和 V 重合,节省计算
+	if (abs(dot(-R, V)) < 0.9999) {
+		// viewPosition 是planar probe 上的点, 沿着 R 可以碰到什么物体
+		hit_dist = raycast(index, viewPosition, R, rand.x);			
 	}
 	else {
 		float z = get_view_z_from_depth(texelFetch(planarDepth, ivec3(project_point(PixelProjMatrix, viewPosition).xy, index), 0).r);
@@ -221,8 +232,10 @@ vec4 do_planar_ssr(int index, vec3 V, vec3 N, vec3 planeNormal, vec3 viewPositio
 }
 ```
 >
-- viewPosition 参数是 reflection probe 上的点
+- viewPosition 参数是 reflection probe 的平面和 ray的 交点
+- 根据 v(视觉) 和 N(物体点的法线)，计算出来 反射线 R 出来，然后 根据 probe 上的交点 和 这个 反射线 R 看看能不能碰撞到物体，如果没有碰到任何物体的话，hit_pos.z 为 负数。
 
+<br><br>
 
 
 ### 2. STEP_RAYTRACE
@@ -257,6 +270,8 @@ void main()
 	...
 }
 ```
+>
+- STEP_RAYTRACE 主要的还是 get_ssr_sample 函数
 
 <br><br>
 
@@ -284,12 +299,18 @@ vec4 get_ssr_sample(
 	float mask = 1.0;
 	float cone_footprint;
 	if (is_planar) {
+		// 这里计算出 物体上的点沿着 V 与 probe 平面的交点 trace_pos
 		/* Reflect back the hit position to have it in non-reflected world space */
 		vec3 trace_pos = line_plane_intersect(worldPosition, V, pd.pl_plane_eq);
+
 		vec3 hit_vec = hit_pos - trace_pos;
 		hit_vec = reflect(hit_vec, pd.pl_normal);
+
+		// 暂时发现重新计算的 hit_pos 在下面没有用到, 
 		hit_pos = hit_vec + trace_pos;
 		L = normalize(hit_vec);
+
+		// 计算屏幕空间UV坐标
 		ref_uvs = project_point(ProjectionMatrix, hit_co_pdf.xyz).xy * 0.5 + 0.5;
 		vec2 uvs = gl_FragCoord.xy / texture_size;
 
@@ -336,3 +357,6 @@ vec4 get_ssr_sample(
 }
 
 ```
+>
+- 如果是 planar 的话， 利用hitpos 计算出 屏幕空间UV坐标，利用 屏幕空间UV坐标 对 probePlanars进行采样，这个 probePlanars 是经过Z 镜面翻转得到的 RT
+- 如果不是 planar 的话，利用hitpos 计算出 屏幕空间UV坐标，利用 屏幕空间UV坐标 对 colorBuffer 进行采样 , 这个 colorBuffer 是 屏幕空间颜色
