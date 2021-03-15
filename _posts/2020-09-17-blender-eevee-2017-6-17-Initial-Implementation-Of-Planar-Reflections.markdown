@@ -70,11 +70,11 @@ static void EEVEE_planar_reflections_updates(EEVEE_SceneLayerData *sldata)
 		invert_m4_m4(imat, normat); /* world > object */
 
 		float reflect[3] = {1.0f, 1.0f, -1.0f}; /* XY reflection plane */
-		scale_m4_v3(imat, reflect); /* world > object > mirrored obj */ // 这里简单理解，就是mat[2] * -1 ,达到z轴翻转
+		scale_m4_v3(imat, reflect); /* world > object > mirrored obj */ 
 		mul_m4_m4m4(mtx, normat, imat); /* world > object > mirrored obj > world */
 
 		/* Reflect Camera Matrix. */
-		mul_m4_m4m4(ped->viewmat, viewmat, mtx);	//这里的ped->viewmat就经过了Z Reflection 
+		mul_m4_m4m4(ped->viewmat, viewmat, mtx);	
 
 		/* TODO FOV margin */
 		float winmat_fov[4][4];
@@ -138,9 +138,12 @@ static void EEVEE_planar_reflections_updates(EEVEE_SceneLayerData *sldata)
 }
 ```
 >
-- 由于渲染的时候需要用到一些数据，先看看一些重要的数据是怎么计算的, 留意代码的注释
+- 总的来说，上面的代码是，用Porbe Planar 作为参考物，物体先将自己从世界空间变换到 Porbe Planar 的局部空间上，然后再进行 Z 镜面反射，然后再变换回到世界空间上，这样一来，物体就相对于 Porbe Planar 进行镜面反转了
+<br><br>
 - 看上面的代码可以发现，ped->viewmat 是经过Reflect, ped->persmat  = ped->viewmat * GL_PROJECTION，也是经过 Reflect的
+<br><br>
 - eplanar->reflectionmat 是没有经过 Relect的， 而是 original view matrix
+
 
 
 ## 渲染
