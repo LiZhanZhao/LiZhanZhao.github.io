@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "blender eevee SSR xx."
+title:      "blender eevee SSR Rewrote the raytracing algorithm."
 subtitle:   ""
 date:       2021-3-16 12:00:00
 author:     "Lzz"
@@ -13,18 +13,44 @@ tags:
 
 ## 来源
 
+- 主要看这个commit
 
+> GIT : 2017/7/30  *   Eevee: SSR: Rewrote the raytracing algorithm.<br> 
+
+> 
+It now uses a quality slider instead of stride.
+Lower quality takes larger strides between samples and use lower mips when tracing rough rays.
+
+>
+Now raytracing is done entierly in homogeneous coordinate space. This run much faster.
+Should be fairly optimized. We are still Bandwidth bound.
+
+>
+Add a line-line intersection refine.
+Add a ray jitter between the multiple ray per pixel to fill some undersampling in mirror reflections.
+
+>
+The tracing now stops if it goes behind an object. This needs some work to allow it to continue even if behind objects.
+
+
+> SVN : 2017/6/8  [MSVC/2013/2015/x86/x64] Update OpenCollada to 1.6.51
 		
 ## 效果
+![](/img/Eevee/SSR/09/1.png)
+
 
 ## 作用
-
+重写SSR算法, 这里还有少少的瑕疵
 
 ## 编译
+- 重新生成SLN
+- git 定位到  2017/7/30  *Eevee: SSR: Rewrote the raytracing algorithm.<br> 
+- svn 定位到 2017/6/8  [MSVC/2013/2015/x86/x64] Update OpenCollada to 1.6.51    (单号:61894)
 
 
+## 1. STEP_RAYTRACE
 
-## Shader
+### Shader
 ```
 
 /* Based on Stochastic Screen Space Reflections
@@ -39,6 +65,8 @@ uniform int rayCount;
 
 #define BRDF_BIAS 0.7
 
+// 利用 V 和 N , 计算 反射 射线 R, 就是通过 视角 + 法线 计算出 反射线
+// 这里参数 V 是  normalize(-viewPosition), 那么 -V 就是 viewPosition, 刚好符合 reflect 对入射光方向的要求
 vec3 generate_ray(vec3 V, vec3 N, float a2, vec3 rand, out float pdf)
 {
 	float NH;
@@ -75,14 +103,19 @@ bool has_hit_backface(vec3 hit_pos, vec3 R, vec3 V)
 	return (dot(-R, hit_N) < 0.0);
 }
 
+// 这里的 V 是 normalize(-viewPosition), 也就是物体点指向相机原点
 vec4 do_planar_ssr(int index, vec3 V, vec3 N, vec3 planeNormal, vec3 viewPosition, float a2, vec3 rand, float ray_nbr)
 {
+	// 计算出 视线 + 点法线 的反射线 R, 这里留意一下 reflect 函数的 L 和 N 的方向，下面有说
 	float pdf;
 	vec3 R = generate_ray(V, N, a2, rand, pdf);
 
+	// 由于reflect函数的 L 是指向position的, 这里的意思就是, R 和 planeNormal 的 形成的 反射向量 R1 是不是 跟 planeNormal 同向 (dot(R, planeNormal) > 0.0)
+	// 如果 R1 跟 planeNormal 同向, 即 (dot(R, planeNormal) > 0.0), 表示的就是 R 和 plane Normal 反向 。
 	R = reflect(R, planeNormal);
 	pdf *= -1.0; /* Tag as planar ray. */
 
+	// 这里就是计算出来的R 和  planeNormal  反向, 重新生成 R
 	/* If ray is bad (i.e. going below the plane) do not trace. */
 	if (dot(R, planeNormal) > 0.0) {
 		vec3 R = generate_ray(V, N, a2, rand * vec3(1.0, -1.0, -1.0), pdf);
@@ -107,6 +140,7 @@ vec4 do_planar_ssr(int index, vec3 V, vec3 N, vec3 planeNormal, vec3 viewPositio
 	return vec4(hit_pos, pdf);
 }
 
+// 这里的 V 是 normalize(-viewPosition), 也就是物体点只想相机远点
 vec4 do_ssr(vec3 V, vec3 N, vec3 viewPosition, float a2, vec3 rand, float ray_nbr)
 {
 	float pdf;
@@ -140,7 +174,11 @@ void main()
 
 	/* Using view space */
 	vec3 viewPosition = get_view_space_from_depth(uvs, depth);
+
+	// #define viewCameraVec  ((ProjectionMatrix[3][3] == 0.0) ? normalize(-viewPosition) : vec3(0.0, 0.0, 1.0))
 	vec3 V = viewCameraVec;
+
+	// 这个N是view空间的
 	vec3 N = normal_decode(texelFetch(normalBuffer, fullres_texel, 0).rg, V);
 
 	/* Retrieve pixel data */
@@ -154,6 +192,7 @@ void main()
 	float roughnessSquared = max(1e-3, roughness * roughness);
 	float a2 = roughnessSquared * roughnessSquared;
 
+	// 这里lod = 0, 第一个数组
 	vec3 rand = texelFetch(utilTex, ivec3(halfres_texel % LUT_SIZE, 2), 0).rba;
 
 	vec3 worldPosition = transform_point(ViewMatrixInverse, viewPosition);
@@ -189,290 +228,78 @@ void main()
 }
 
 #else /* STEP_RESOLVE */
-
-uniform sampler2D colorBuffer; /* previous frame */
-uniform sampler2D normalBuffer;
-uniform sampler2D specroughBuffer;
-
-uniform sampler2D hitBuffer0;
-uniform sampler2D hitBuffer1;
-uniform sampler2D hitBuffer2;
-uniform sampler2D hitBuffer3;
-
-uniform int probe_count;
-uniform int planar_count;
-
-uniform float borderFadeFactor;
-uniform float fireflyFactor;
-
-uniform mat4 PastViewProjectionMatrix;
-
-out vec4 fragColor;
-
-void fallback_cubemap(vec3 N, vec3 V, vec3 W, float roughness, float roughnessSquared, inout vec4 spec_accum)
-{
-	/* Specular probes */
-	vec3 spec_dir = get_specular_dominant_dir(N, V, roughnessSquared);
-
-	/* Starts at 1 because 0 is world probe */
-	for (int i = 1; i < MAX_PROBE && i < probe_count && spec_accum.a < 0.999; ++i) {
-		CubeData cd = probes_data[i];
-
-		float fade = probe_attenuation_cube(cd, W);
-
-		if (fade > 0.0) {
-			vec3 spec = probe_evaluate_cube(float(i), cd, W, spec_dir, roughness);
-			accumulate_light(spec, fade, spec_accum);
-		}
-	}
-
-	/* World Specular */
-	if (spec_accum.a < 0.999) {
-		vec3 spec = probe_evaluate_world_spec(spec_dir, roughness);
-		accumulate_light(spec, 1.0, spec_accum);
-	}
-}
-
-#if 0 /* Finish reprojection with motion vectors */
-vec3 get_motion_vector(vec3 pos)
-{
-}
-
-/* http://bitsquid.blogspot.fr/2017/06/reprojecting-reflections_22.html */
-vec3 find_reflection_incident_point(vec3 cam, vec3 hit, vec3 pos, vec3 N)
-{
-	float d_cam = point_plane_projection_dist(cam, pos, N);
-	float d_hit = point_plane_projection_dist(hit, pos, N);
-
-	if (d_hit < d_cam) {
-		/* Swap */
-		float tmp = d_cam;
-		d_cam = d_hit;
-		d_hit = tmp;
-	}
-
-	vec3 proj_cam = cam - (N * d_cam);
-	vec3 proj_hit = hit - (N * d_hit);
-
-	return (proj_hit - proj_cam) * d_cam / (d_cam + d_hit) + proj_cam;
-}
-#endif
-
-float brightness(vec3 c)
-{
-	return max(max(c.r, c.g), c.b);
-}
-
-float screen_border_mask(vec2 hit_co)
-{
-	const float margin = 0.003;
-	float atten = borderFadeFactor + margin; /* Screen percentage */
-	hit_co = smoothstep(margin, atten, hit_co) * (1 - smoothstep(1.0 - atten, 1.0 - margin, hit_co));
-
-	float screenfade = hit_co.x * hit_co.y;
-
-	return screenfade;
-}
-
-vec2 get_reprojected_reflection(vec3 hit, vec3 pos, vec3 N)
-{
-	/* TODO real reprojection with motion vectors, etc... */
-	return project_point(PastViewProjectionMatrix, hit).xy * 0.5 + 0.5;
-}
-
-vec4 get_ssr_sample(
-        sampler2D hitBuffer, PlanarData pd, float planar_index, vec3 worldPosition, vec3 N, vec3 V, float roughnessSquared,
-        float cone_tan, vec2 source_uvs, vec2 texture_size, ivec2 target_texel,
-        inout float weight_acc)
-{
-	vec4 hit_co_pdf = texelFetch(hitBuffer, target_texel, 0).rgba;
-	bool has_hit = (hit_co_pdf.z < 0.0);
-	bool is_planar = (hit_co_pdf.w < 0.0);
-	hit_co_pdf.z = -abs(hit_co_pdf.z);
-	hit_co_pdf.w = abs(hit_co_pdf.w);
-
-	/* Hit position in world space. */
-	vec3 hit_pos = transform_point(ViewMatrixInverse, hit_co_pdf.xyz);
-
-	vec2 ref_uvs;
-	vec3 L;
-	float mask = 1.0;
-	float cone_footprint;
-	if (is_planar) {
-		/* Reflect back the hit position to have it in non-reflected world space */
-		vec3 trace_pos = line_plane_intersect(worldPosition, V, pd.pl_plane_eq);
-		vec3 hit_vec = hit_pos - trace_pos;
-		hit_vec = reflect(hit_vec, pd.pl_normal);
-		hit_pos = hit_vec + trace_pos;
-		L = normalize(hit_vec);
-		ref_uvs = project_point(ProjectionMatrix, hit_co_pdf.xyz).xy * 0.5 + 0.5;
-		vec2 uvs = gl_FragCoord.xy / texture_size;
-
-		/* Compute cone footprint in screen space. */
-		float homcoord = ProjectionMatrix[2][3] * hit_co_pdf.z + ProjectionMatrix[3][3];
-		cone_footprint = length(hit_vec) * cone_tan * ProjectionMatrix[0][0] / homcoord;
-	}
-	else {
-		/* Find hit position in previous frame. */
-		ref_uvs = get_reprojected_reflection(hit_pos, worldPosition, N);
-		L = normalize(hit_pos - worldPosition);
-		vec2 uvs = gl_FragCoord.xy / vec2(textureSize(depthBuffer, 0));
-		mask *= screen_border_mask(uvs);
-
-		/* Compute cone footprint Using UV distance because we are using screen space filtering. */
-		cone_footprint = 1.5 * cone_tan * distance(ref_uvs, source_uvs);
-	}
-	mask = min(mask, screen_border_mask(ref_uvs));
-	mask *= float(has_hit);
-
-	/* Estimate a cone footprint to sample a corresponding mipmap level. */
-	float mip = BRDF_BIAS * clamp(log2(cone_footprint * max(texture_size.x, texture_size.y)), 0.0, MAX_MIP);
-
-	/* Slide 54 */
-	float bsdf = bsdf_ggx(N, L, V, roughnessSquared);
-	float weight = bsdf / max(1e-8, hit_co_pdf.w);
-	weight_acc += weight;
-
-	vec3 sample;
-	if (is_planar) {
-		sample = textureLod(probePlanars, vec3(ref_uvs, planar_index), mip).rgb;
-	}
-	else {
-		sample = textureLod(colorBuffer, ref_uvs, mip).rgb;
-	}
-
-	/* Do not add light if ray has failed. */
-	sample *= float(has_hit);
-
-	/* Firefly removal */
-	sample /= 1.0 + fireflyFactor * brightness(sample);
-
-	return vec4(sample, mask) * weight;
-}
-
-#define NUM_NEIGHBORS 4
-
-void main()
-{
-	ivec2 fullres_texel = ivec2(gl_FragCoord.xy);
-#ifdef FULLRES
-	ivec2 halfres_texel = fullres_texel;
-#else
-	ivec2 halfres_texel = ivec2(gl_FragCoord.xy / 2.0);
-#endif
-	vec2 texture_size = vec2(textureSize(depthBuffer, 0));
-	vec2 uvs = gl_FragCoord.xy / texture_size;
-	vec3 rand = texelFetch(utilTex, ivec3(fullres_texel % LUT_SIZE, 2), 0).rba;
-
-	float depth = textureLod(depthBuffer, uvs, 0.0).r;
-
-	/* Early out */
-	if (depth == 1.0)
-		discard;
-
-	/* Using world space */
-	vec3 viewPosition = get_view_space_from_depth(uvs, depth); /* Needed for viewCameraVec */
-	vec3 worldPosition = transform_point(ViewMatrixInverse, viewPosition);
-	vec3 V = cameraVec;
-	vec3 vN = normal_decode(texelFetch(normalBuffer, fullres_texel, 0).rg, viewCameraVec);
-	vec3 N = transform_direction(ViewMatrixInverse, vN);
-	vec4 speccol_roughness = texelFetch(specroughBuffer, fullres_texel, 0).rgba;
-
-	/* Early out */
-	if (dot(speccol_roughness.rgb, vec3(1.0)) == 0.0)
-		discard;
-
-	/* Find Planar Reflections affecting this pixel */
-	PlanarData pd;
-	float planar_index;
-	for (int i = 0; i < MAX_PLANAR && i < planar_count; ++i) {
-		pd = planars_data[i];
-
-		float fade = probe_attenuation_planar(pd, worldPosition, N, 0.0);
-
-		if (fade > 0.5) {
-			planar_index = float(i);
-			break;
-		}
-	}
-
-	float roughness = speccol_roughness.a;
-	float roughnessSquared = max(1e-3, roughness * roughness);
-
-	vec4 spec_accum = vec4(0.0);
-
-	/* Resolve SSR */
-	float cone_cos = cone_cosine(roughnessSquared);
-	float cone_tan = sqrt(1 - cone_cos * cone_cos) / cone_cos;
-	cone_tan *= mix(saturate(dot(N, V) * 2.0), 1.0, roughness); /* Elongation fit */
-
-	vec2 source_uvs = project_point(PastViewProjectionMatrix, worldPosition).xy * 0.5 + 0.5;
-
-	vec4 ssr_accum = vec4(0.0);
-	float weight_acc = 0.0;
-	const ivec2 neighbors[9] = ivec2[9](
-		ivec2(0, 0),
-
-		               ivec2(0,  1),
-		ivec2(-1, -1),               ivec2(1, -1),
-
-		ivec2(-1,  1),               ivec2(1,  1),
-		               ivec2(0, -1),
-
-		ivec2(-1,  0),               ivec2(1,  0)
-	);
-	ivec2 invert_neighbor;
-	invert_neighbor.x = ((fullres_texel.x & 0x1) == 0) ? 1 : -1;
-	invert_neighbor.y = ((fullres_texel.y & 0x1) == 0) ? 1 : -1;
-
-	for (int i = 0; i < NUM_NEIGHBORS; i++) {
-		ivec2 target_texel = halfres_texel + neighbors[i] * invert_neighbor;
-
-		ssr_accum += get_ssr_sample(hitBuffer0, pd, planar_index, worldPosition, N, V,
-		                            roughnessSquared, cone_tan, source_uvs,
-		                            texture_size, target_texel, weight_acc);
-		if (rayCount > 1) {
-			ssr_accum += get_ssr_sample(hitBuffer1, pd, planar_index, worldPosition, N, V,
-			                            roughnessSquared, cone_tan, source_uvs,
-			                            texture_size, target_texel, weight_acc);
-		}
-		if (rayCount > 2) {
-			ssr_accum += get_ssr_sample(hitBuffer2, pd, planar_index, worldPosition, N, V,
-			                            roughnessSquared, cone_tan, source_uvs,
-			                            texture_size, target_texel, weight_acc);
-		}
-		if (rayCount > 3) {
-			ssr_accum += get_ssr_sample(hitBuffer3, pd, planar_index, worldPosition, N, V,
-			                            roughnessSquared, cone_tan, source_uvs,
-			                            texture_size, target_texel, weight_acc);
-		}
-	}
-
-	/* Compute SSR contribution */
-	if (weight_acc > 0.0) {
-		ssr_accum /= weight_acc;
-		/* fade between 0.5 and 1.0 roughness */
-		//ssr_accum.a *= saturate(2.0 - roughness * 2.0);
-		accumulate_light(ssr_accum.rgb, ssr_accum.a, spec_accum);
-	}
-
-	/* If SSR contribution is not 1.0, blend with cubemaps */
-	if (spec_accum.a < 1.0) {
-		fallback_cubemap(N, V, worldPosition, roughness, roughnessSquared, spec_accum);
-	}
-
-	fragColor = vec4(spec_accum.rgb * speccol_roughness.rgb, 1.0);
-}
-
+...
 #endif
 
 ```
 
+#### a. normalBuffer 和 specroughBuffer 的来源
 
+- 可以看 [Output-SSR-Datas-To-Buffers](http://shaderstore.cn/2021/02/24/blender-eevee-2017-7-17-SSR-Output-SSR-Datas-To-Buffers/) 找到具体的信息
+<br><br>
+- 总结来说，normalBuffer 保存的是 view 空间的 normal, specroughBuffer 中 rgb 保存的是 计算的pbr高光结果, a 保存的是 rounghness
+
+#### b. reflect 函数
+- reflect 的实现
+```
+float3 reflect( float3 i, float3 n )
+{
+  return i - 2.0 * n * dot(n,i);
+}
+```
+- ![](/img/Eevee/SSR/09/2.png)
+- 上面的就是reflection的参数的方向， L 的方向是 指向 Postion 的
+- 可以参考[这里](https://zhuanlan.zhihu.com/p/152561125)
+
+
+#### c. utilTex
+- utilTex 是一个 TextureArray , 由3个 64 * 64 的元素组成
+- 第一个数组保存了的是 ltc_mat_ggx [-1, 1]
+```
+void EEVEE_materials_init(EEVEE_StorageList *stl)
+{
+	...
+	/* Textures */
+	const int layers = 3;
+	float (*texels)[4] = MEM_mallocN(sizeof(float[4]) * 64 * 64 * layers, "utils texels");
+	float (*texels_layer)[4] = texels;
+
+	/* Copy ltc_mat_ggx into 1st layer */
+	memcpy(texels_layer, ltc_mat_ggx, sizeof(float[4]) * 64 * 64);
+	texels_layer += 64 * 64;
+
+	/* Copy bsdf_split_sum_ggx into 2nd layer red and green channels.
+		Copy ltc_mag_ggx into 2nd layer blue channel. */
+	for (int i = 0; i < 64 * 64; i++) {
+		texels_layer[i][0] = bsdf_split_sum_ggx[i*2 + 0];
+		texels_layer[i][1] = bsdf_split_sum_ggx[i*2 + 1];
+		texels_layer[i][2] = ltc_mag_ggx[i];
+	}
+	texels_layer += 64 * 64;
+
+	for (int i = 0; i < 64 * 64; i++) {
+		texels_layer[i][0] = blue_noise[i][0];
+		texels_layer[i][1] = blue_noise[i][1] * 0.5 + 0.5;
+		texels_layer[i][2] = cosf(blue_noise[i][1] * 2.0 * M_PI);
+		texels_layer[i][3] = sinf(blue_noise[i][1] * 2.0 * M_PI);
+	}
+
+	e_data.util_tex = DRW_texture_create_2D_array(64, 64, layers, DRW_TEX_RGBA_16, DRW_TEX_FILTER | DRW_TEX_WRAP, (float *)texels);
+	MEM_freeN(texels);
+	...
+}
+```
+
+#### d. Planar Reflections SSR
+- 可以看 [SSR-Add-Support-For-Planar-Probes](http://shaderstore.cn/2021/03/12/blender-eevee-2017-7-26-SSR-Add-Support-For-Planar-Probes/) 找到具体的信息
+<br><br>
+- 总结来说, 因为SSR是后处理效果, 所有的一切都是基本屏幕的, 利用屏幕的深度信息可以计算出每一个像素对应的WorldPosition 和 WorldNormal, 因为 Planar Reflections Probe 自身是保存了一个平面方程等一些信息，那么 利用 WorldPosition 和 WorldNormal 就可以判断出哪一些 屏幕的像素是 在  Planar Reflections Probe 的有效范围内
+<br><br>
+- 知道哪一些 屏幕的像素 在 Planar Reflections Probe 范围内, 那么就利用像素的 WorldPosition 和 cameraVec, cameraVec 是 WorldPosition 指向 CameraWorldPostion ,组成一个ray, 这个ray 和  Planar Reflections Probe 的 平面方程进行相交，计算出一个交点 tracePosition.
 <br><br>
 
-*raytrace_lib.glsl*
 
+#### e. raycast
 ```
 #define MAX_STEP 256
 #define MAX_REFINE_STEP 32 /* Should be max allowed stride */
@@ -561,6 +388,10 @@ void prepare_raycast(vec3 ray_origin, vec3 ray_dir, out vec4 ss_step, out vec4 s
 	/* Negate the ray direction if it goes towards the camera.
 	 * This way we don't need to care if the projected point
 	 * is behind the near plane. */
+	 
+	 // 如果 ray_dir.z为负数，z_sign 为 1，那么 z_sign * ray_dir =  ray_dir
+	 // 如果 ray_dir.z为正数, z_sign 为 -1, 那么 z_sign * ray_dir = - ray_dir
+
 	float z_sign = -sign(ray_dir.z);
 	vec3 ray_end = z_sign * ray_dir * 1e16 + ray_origin;
 
