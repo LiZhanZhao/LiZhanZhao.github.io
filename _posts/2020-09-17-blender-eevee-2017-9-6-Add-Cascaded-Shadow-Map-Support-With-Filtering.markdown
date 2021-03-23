@@ -973,3 +973,5 @@ void main() {
 - shadow_cascade_store_pass Pass 就把 以上的 texture Array 再保存到另一张 shadow_pool RT上，shadow_pool RT 也是 texture Array，之后物体计算影子的都是用到 shadow_pool RT 
 <br><br>
 - 计算影子的时候, 会进行判断物体在CSM的哪一段里面，然后再进行取对应的那一个RT
+<br><br>
+- 需要注意的是，所有的影子都是存储在 shadow_pool RT 这个Texture Array 上，无论是 方向光的，还是点光的
