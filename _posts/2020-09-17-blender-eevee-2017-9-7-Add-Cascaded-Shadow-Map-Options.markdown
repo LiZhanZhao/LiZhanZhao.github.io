@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "blender eevee dd Cascaded Shadow Map options"
+title:      "blender eevee Add Cascaded Shadow Map options"
 subtitle:   ""
 date:       2021-3-24 12:00:00
 author:     "Lzz"
