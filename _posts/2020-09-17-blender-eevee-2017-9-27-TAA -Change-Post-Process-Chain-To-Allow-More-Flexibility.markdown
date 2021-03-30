@@ -157,69 +157,284 @@ void EEVEE_draw_effects(EEVEE_Data *vedata)
 
 <br><br>
 
-
+### 计算 Shader 参数
+*eevee_effects.c*
 ```
-if (BKE_collection_engine_property_value_get_bool(props, "taa_enable")) {
-	float persmat[4][4], viewmat[4][4];
+/* translate a matrix created by orthographic_m4 or perspective_m4 in XY coords (used to jitter the view) */
+void window_translate_m4(float winmat[4][4], float perspmat[4][4], const float x, const float y)
+{
+	if (winmat[2][3] == -1.0f) {
+		/* in the case of a win-matrix, this means perspective always */
+		float v1[3];
+		float v2[3];
+		float len1, len2;
 
-	enabled_effects |= EFFECT_TAA | EFFECT_DOUBLE_BUFFER;
+		v1[0] = perspmat[0][0];
+		v1[1] = perspmat[1][0];
+		v1[2] = perspmat[2][0];
 
-	/* Until we support reprojection, we need to make sure
-		* that the history buffer contains correct information. */
-	bool view_is_valid = stl->g_data->valid_double_buffer;
+		v2[0] = perspmat[0][1];
+		v2[1] = perspmat[1][1];
+		v2[2] = perspmat[2][1];
 
-	view_is_valid = view_is_valid && (stl->g_data->view_updated == false);
+		len1 = (1.0f / len_v3(v1));
+		len2 = (1.0f / len_v3(v2));
 
-	effects->taa_total_sample = BKE_collection_engine_property_value_get_int(props, "taa_samples");
-	MAX2(effects->taa_total_sample, 0);
+		float test1 = len1 * winmat[0][0];
+		float test2 = len2 * winmat[1][1];
 
-	DRW_viewport_matrix_get(persmat, DRW_MAT_PERS);
-	DRW_viewport_matrix_get(viewmat, DRW_MAT_VIEW);
-	DRW_viewport_matrix_get(effects->overide_winmat, DRW_MAT_WIN);
-	view_is_valid = view_is_valid && compare_m4m4(persmat, effects->prev_drw_persmat, 0.0001f);
-	copy_m4_m4(effects->prev_drw_persmat, persmat);
+		// 这里测试过，不会进去，也就是test1 和 test2 基本都是 1
+		if (test1 < 0.99 || test2 < 0.99 || test1 > 1.001 || test2 > 1.001) {
+			test1 = 2;
+		}
 
-	if (view_is_valid &&
-		((effects->taa_total_sample == 0) ||
-			(effects->taa_current_sample < effects->taa_total_sample)))
-	{
-		effects->taa_current_sample += 1;
+		winmat[2][0] += len1 * winmat[0][0] * x;
+		winmat[2][1] += len2 * winmat[1][1] * y;
 
-		effects->taa_alpha = 1.0f / (float)(effects->taa_current_sample);
-
-		double ht_point[2];
-		double ht_offset[2] = {0.0, 0.0};
-		unsigned int ht_primes[2] = {2, 3};
-
-		BLI_halton_2D(ht_primes, ht_offset, effects->taa_current_sample - 1, ht_point);
-
-		window_translate_m4(
-				effects->overide_winmat, persmat,
-				((float)(ht_point[0]) * 2.0f - 1.0f) / viewport_size[0],
-				((float)(ht_point[1]) * 2.0f - 1.0f) / viewport_size[1]);
-
-		mul_m4_m4m4(effects->overide_persmat, effects->overide_winmat, viewmat);
-		invert_m4_m4(effects->overide_persinv, effects->overide_persmat);
-		invert_m4_m4(effects->overide_wininv, effects->overide_winmat);
-
-		DRW_viewport_matrix_override_set(effects->overide_persmat, DRW_MAT_PERS);
-		DRW_viewport_matrix_override_set(effects->overide_persinv, DRW_MAT_PERSINV);
-		DRW_viewport_matrix_override_set(effects->overide_winmat, DRW_MAT_WIN);
-		DRW_viewport_matrix_override_set(effects->overide_wininv, DRW_MAT_WININV);
+		// 可以写成
+		//winmat[2][0] += x;
+		//winmat[2][1] += y;
 	}
 	else {
-		effects->taa_current_sample = 1;
+		winmat[3][0] += x;
+		winmat[3][1] += y;
 	}
-
-	DRWFboTexture tex_double_buffer = {&txl->depth_double_buffer, DRW_TEX_DEPTH_24};
-
-	DRW_framebuffer_init(&fbl->depth_double_buffer_fb, &draw_engine_eevee_type,
-						(int)viewport_size[0], (int)viewport_size[1],
-						&tex_double_buffer, 1);
 }
-else {
-	/* Cleanup to release memory */
-	DRW_TEXTURE_FREE_SAFE(txl->depth_double_buffer);
-	DRW_FRAMEBUFFER_FREE_SAFE(fbl->depth_double_buffer_fb);
+
+void EEVEE_effects_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
+{
+	...
+	if (BKE_collection_engine_property_value_get_bool(props, "taa_enable")) {
+		float persmat[4][4], viewmat[4][4];
+
+		enabled_effects |= EFFECT_TAA | EFFECT_DOUBLE_BUFFER;
+
+		/* Until we support reprojection, we need to make sure
+		 * that the history buffer contains correct information. */
+		bool view_is_valid = stl->g_data->valid_double_buffer;
+
+		view_is_valid = view_is_valid && (stl->g_data->view_updated == false);
+
+		effects->taa_total_sample = BKE_collection_engine_property_value_get_int(props, "taa_samples");
+		MAX2(effects->taa_total_sample, 0);
+
+		// DRW_MAT_PERS 是 VP 矩阵
+		DRW_viewport_matrix_get(persmat, DRW_MAT_PERS);
+		// DRW_MAT_VIEW 是 V 矩阵
+		DRW_viewport_matrix_get(viewmat, DRW_MAT_VIEW);
+		// DRW_MAT_WIN 是 P 矩阵
+		DRW_viewport_matrix_get(effects->overide_winmat, DRW_MAT_WIN);
+
+		view_is_valid = view_is_valid && compare_m4m4(persmat, effects->prev_drw_persmat, 0.0001f);
+		copy_m4_m4(effects->prev_drw_persmat, persmat);
+
+		if (view_is_valid &&
+		    ((effects->taa_total_sample == 0) ||
+		     (effects->taa_current_sample < effects->taa_total_sample)))
+		{
+			effects->taa_current_sample += 1;
+
+			effects->taa_alpha = 1.0f / (float)(effects->taa_current_sample);
+
+			double ht_point[2];
+			double ht_offset[2] = {0.0, 0.0};
+			unsigned int ht_primes[2] = {2, 3};
+
+			BLI_halton_2D(ht_primes, ht_offset, effects->taa_current_sample - 1, ht_point);
+
+			float w = viewport_size[0];
+			float h = viewport_size[1];
+
+			window_translate_m4(
+			        effects->overide_winmat, persmat,
+			        ((float)(ht_point[0]) * 2.0f - 1.0f) / viewport_size[0],
+			        ((float)(ht_point[1]) * 2.0f - 1.0f) / viewport_size[1]);
+
+			mul_m4_m4m4(effects->overide_persmat, effects->overide_winmat, viewmat);
+			invert_m4_m4(effects->overide_persinv, effects->overide_persmat);
+			invert_m4_m4(effects->overide_wininv, effects->overide_winmat);
+
+			DRW_viewport_matrix_override_set(effects->overide_persmat, DRW_MAT_PERS);
+			DRW_viewport_matrix_override_set(effects->overide_persinv, DRW_MAT_PERSINV);
+			DRW_viewport_matrix_override_set(effects->overide_winmat, DRW_MAT_WIN);
+			DRW_viewport_matrix_override_set(effects->overide_wininv, DRW_MAT_WININV);
+		}
+		else {
+			effects->taa_current_sample = 1;
+		}
+
+		DRWFboTexture tex_double_buffer = {&txl->depth_double_buffer, DRW_TEX_DEPTH_24};
+
+		DRW_framebuffer_init(&fbl->depth_double_buffer_fb, &draw_engine_eevee_type,
+		                    (int)viewport_size[0], (int)viewport_size[1],
+		                    &tex_double_buffer, 1);
+	}
+	else {
+		/* Cleanup to release memory */
+		DRW_TEXTURE_FREE_SAFE(txl->depth_double_buffer);
+		DRW_FRAMEBUFFER_FREE_SAFE(fbl->depth_double_buffer_fb);
+	}
+	...
 }
 ```
+>
+- 这里可以看到 effects->taa_alpha  是如何计算的 1.0f / (float)(effects->taa_current_sample)
+<br><br>
+-  effects->overide_winmat 是 修改后的 投影矩阵，effects->overide_winmat 是通过 修改的 P 矩阵，主要是 让 点 和 effects->overide_winmat 相乘之后，x,y 坐标 会有一个多一个 jitter，也就是抖动偏移
+<br><br>
+- modify the projection matrix, adding small translations in x and y
+<br><br>
+- 看看 window_translate_m4 的注释，经过测试，其实 可以写成 winmat[2][0] += x, winmat[2][1] += y, 直接 让 点 乘以 winmat 之后，进行一个jitter
+<br><br>
+- 修改完 effects->overide_winmat 之后，也就是 P 矩阵，然后就利用 effects->overide_winmat 来修改 effects->overide_persmat，也就是修改 VP 矩阵
+- 还有 effects->overide_persinv VP 的逆矩阵 和  effects->overide_wininv P 的逆矩阵，都是经过修改的
+
+
+
+
+
+### 渲染流程的一些改变
+
+```
+static void EEVEE_engine_init(void *ved)
+{
+    ...
+    /* EEVEE_effects_init needs to go first for TAA */
+	EEVEE_effects_init(sldata, vedata);
+
+	EEVEE_materials_init(stl);
+	EEVEE_lights_init(sldata);
+	EEVEE_lightprobes_init(sldata, vedata);
+
+	if (stl->effects->taa_current_sample > 1) {
+		/* XXX otherwise it would break the other engines. */
+		DRW_viewport_matrix_override_unset(DRW_MAT_PERS);
+		DRW_viewport_matrix_override_unset(DRW_MAT_PERSINV);
+		DRW_viewport_matrix_override_unset(DRW_MAT_WIN);
+		DRW_viewport_matrix_override_unset(DRW_MAT_WININV);
+	}
+    ...
+}
+```
+>
+- 初始化 添加taa_current_sample的判断，设置 DRW_viewport_matrix_override_unset
+
+<br><br>
+
+```
+
+/* TODO : put this somewhere in BLI */
+static float halton_1D(int prime, int n)
+{
+	float inv_prime = 1.0f / (float)prime;
+	float f = 1.0f;
+	float r = 0.0f;
+
+	while (n > 0) {
+		f = f * inv_prime;
+		r += f * (n % prime);
+		n = (int)(n * inv_prime);
+	}
+
+	return r;
+}
+
+static void EEVEE_draw_scene(void *vedata)
+{
+	...
+
+	/* Number of iteration: needed for all temporal effect (SSR, TAA)
+	 * when using opengl render. */
+	int loop_ct = DRW_state_is_image_render() ? 4 : 1;
+
+	static float rand = 0.0f;
+
+	/* XXX temp for denoising render. TODO plug number of samples here */
+	if (DRW_state_is_image_render()) {
+		rand += 1.0f / 16.0f;
+		rand = rand - floorf(rand);
+
+		/* Set jitter offset */
+		EEVEE_update_util_texture(rand);
+	}
+	else if (((stl->effects->enabled_effects & EFFECT_TAA) != 0) && (stl->effects->taa_current_sample > 1)) {
+		rand = halton_1D(2, stl->effects->taa_current_sample - 1);
+
+		/* Set jitter offset */
+		/* PERF This is killing perf ! */
+		EEVEE_update_util_texture(rand);
+	}
+
+	while (loop_ct--) {
+
+		/* Refresh Probes */
+		...
+
+		/* Refresh shadows */
+		...
+
+		/* Attach depth to the hdr buffer and bind it */
+		DRW_framebuffer_texture_detach(dtxl->depth);
+		DRW_framebuffer_texture_attach(fbl->main, dtxl->depth, 0, 0);
+		DRW_framebuffer_bind(fbl->main);
+		DRW_framebuffer_clear(false, true, false, NULL, 1.0f);
+
+		if (((stl->effects->enabled_effects & EFFECT_TAA) != 0) && stl->effects->taa_current_sample > 1) {
+			DRW_viewport_matrix_override_set(stl->effects->overide_persmat, DRW_MAT_PERS);
+			DRW_viewport_matrix_override_set(stl->effects->overide_persinv, DRW_MAT_PERSINV);
+			DRW_viewport_matrix_override_set(stl->effects->overide_winmat, DRW_MAT_WIN);
+			DRW_viewport_matrix_override_set(stl->effects->overide_wininv, DRW_MAT_WININV);
+		}
+
+		/* Depth prepass */
+		...
+
+		/* Create minmax texture */
+		...
+
+		/* Compute GTAO Horizons */
+		...
+
+		/* Restore main FB */
+		...
+
+		/* Shading pass */
+		...
+
+		/* Screen Space Reflections */
+		...
+
+		DRW_draw_pass(psl->probe_display);
+
+		/* Prepare Refraction */
+		...
+
+		/* Restore main FB */
+		...
+
+		/* Opaque refraction */
+		...
+
+		/* Transparent */
+		...
+
+		/* Volumetrics */
+		...
+
+		/* Post Process */
+		...
+
+		if (stl->effects->taa_current_sample > 1) {
+			DRW_viewport_matrix_override_unset(DRW_MAT_PERS);
+			DRW_viewport_matrix_override_unset(DRW_MAT_PERSINV);
+			DRW_viewport_matrix_override_unset(DRW_MAT_WIN);
+			DRW_viewport_matrix_override_unset(DRW_MAT_WININV);
+		}
+	}
+
+	stl->g_data->view_updated = false;
+}
+```
+>
+- 渲染流程 考虑到了 overide_persmat ，overide_persinv ，overide_winmat，overide_wininv
+- 个人理解 这些 overide_persmat 矩阵，就是替换了 原来的 persmat 矩阵，例如Shader 用到的矩阵 persmat 矩阵都会被这些 overide_persmat 给替换了。
