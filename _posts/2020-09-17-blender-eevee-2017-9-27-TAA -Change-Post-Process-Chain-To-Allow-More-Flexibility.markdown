@@ -115,7 +115,15 @@ void EEVEE_effects_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
 
 void EEVEE_draw_effects(EEVEE_Data *vedata)
 {
+	/* only once per frame after the first post process */
+	bool swap_double_buffer = ((effects->enabled_effects & EFFECT_DOUBLE_BUFFER) != 0);
+
 	...
+
+	/* Init pointers */
+	effects->source_buffer = txl->color; /* latest updated texture */
+	effects->target_buffer = fbl->effect_fb; /* next target to render to */
+
 	/* Temporal Anti-Aliasing */
 	/* MUST COME FIRST. */
 	if ((effects->enabled_effects & EFFECT_TAA) != 0) {
@@ -156,6 +164,11 @@ void EEVEE_draw_effects(EEVEE_Data *vedata)
 -  接着 effects->source_buffer = txl->color_double_buffer; 和 effects->target_buffer = fbl->main; 意思就是 接下的后处理 输入都是  TAA渲染后到 framebuffer，输出是 fbl->main
 
 <br><br>
+
+
+
+<br><br>
+
 
 ### 计算 Shader 参数
 *eevee_effects.c*
@@ -438,3 +451,20 @@ static void EEVEE_draw_scene(void *vedata)
 >
 - 渲染流程 考虑到了 overide_persmat ，overide_persinv ，overide_winmat，overide_wininv
 - 个人理解 这些 overide_persmat 矩阵，就是替换了 原来的 persmat 矩阵，例如Shader 用到的矩阵 persmat 矩阵都会被这些 overide_persmat 给替换了。
+
+<br><br>
+
+
+### 总结流程
+- 渲染场景的时候，会考虑到 P 矩阵 和 VP 矩阵，TAA 的做法就是 修改这些 P 矩阵 和 VP 矩阵，让 物体进行 P 矩阵 变换的时候，x，y 坐标进行 jitter，导致每一帧的画面都有所不同。
+<br><br>
+- 在TAA执行之前，场景的物体会渲染到 fbl->main (txl->color) 上
+<br><br>
+- 执行TAA的过程中，TAA 会把东西渲染到 目标 fbl->effect_fb 上，传入 txl->color 作为当前帧画面 + txl->color_double_buffer 作为上一帧画面，然后再令 fbl->double_buffer 和 fbl->effect_fb 交换，使得 fbl->double_buffer 保存了 TAA 的渲染结果，也就是，上一帧结果 被修改了，变成了 又经 TAA 处理过的 画面，那就是，上一帧的画面，是 收之前的经过TAA处理过的画面不停进行“迭代”而成的
+<br><br>
+- 设置 swap_double_buffer = false 的标记，接下来所有的 后处理不进行 交换 fbl->main 和 fbl->double_buffer， 
+<br><br>
+- 设置 effects->source_buffer = txl->color_double_buffer，说明接下来的后处理 都是 拿 TAA 处理过的 RT 进行 输入
+<br><br>
+- effects->target_buffer = fbl->main, 说明接下来的后处理 输出到 fbl->main 中
+<br><br>
