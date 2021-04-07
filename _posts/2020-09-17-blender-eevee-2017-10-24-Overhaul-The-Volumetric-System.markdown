@@ -29,12 +29,14 @@ tags:
 
 ## 作用
 
-
+重构 volumetric system
+<br><br>
 
 ## 效果
+*想要看到效果, Viewport Samples(TAA Sample) 要先设置为 1*
+![](/img/Eevee/Volumetrics+/01/1.png)
 
-
-
+<br><br>
 
 ### 渲染入口
 
