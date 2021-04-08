@@ -113,6 +113,10 @@ void EEVEE_effects_do_volumetrics(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Da
 ```
 void EEVEE_effects_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
 {
+	txl->volume_prop_scattering = DRW_texture_create_3D(froxel_tex_size[0], froxel_tex_size[1], froxel_tex_size[2], DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER, NULL);
+	txl->volume_prop_extinction = DRW_texture_create_3D(froxel_tex_size[0], froxel_tex_size[1], froxel_tex_size[2], DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER, NULL);
+	txl->volume_prop_emission = DRW_texture_create_3D(froxel_tex_size[0], froxel_tex_size[1], froxel_tex_size[2], DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER, NULL);
+	txl->volume_prop_phase = DRW_texture_create_3D(froxel_tex_size[0], froxel_tex_size[1], froxel_tex_size[2], DRW_TEX_RG_16, DRW_TEX_FILTER, NULL);
 	...
 	/* Framebuffer setup */
 	DRWFboTexture tex_vol[4] = {&txl->volume_prop_scattering, DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER},
@@ -126,7 +130,10 @@ void EEVEE_effects_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
 	...
 }
 ```
-
+>
+- 这里需要留意的是, volume_prop_scattering + volume_prop_extinction + volume_prop_emission + volume_prop_phase 都是 3D Texture
+<br><br>
+- Shader是把东西渲染到 3D Texture 
 <br>
 
 #### 2. volumetric_ps 初始化
@@ -220,7 +227,12 @@ void EEVEE_effects_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
 >
 - 可以看到，这里 volumetric_ps 使用了 node tree, vs 使用了 volumetric_vert.glsl, gs 使用了 volumetric_geom.glsl，ps 使用了 volumetric_lib.glsl + volumetric_frag.glsl
 <br><br>
-- 定义了 #define VOLUMETRICS
+- Shader 中 定义了 #define VOLUMETRICS
+<br><br>
+- 值得留意得是，这里渲染是使用了 DRW_shgroup_material_empty_tri_batch_create 函数进行得，经过截帧可以知道 DRW_shgroup_material_empty_tri_batch_create 和构造一个 Geom，这个 Geom 是由volumetrics->froxel_tex_size[2] 个三角形， volumetrics->froxel_tex_size[2] x 3 个顶点组成，例如 volumetrics->froxel_tex_size[2] 是 64 的话，就是 64 个三角形， Geom 就是 64 x 3 = 192 个顶点，但是这些三角形的pos都是没有任何数据的，例如
+![](/img/Eevee/Volumetrics+/01/2.png)
+<br><br>
+- DRW_shgroup_material_empty_tri_batch_create 也就是说 会把东西渲染对应的 3D Texture 上的每一个Texture上。(3D Texture 可以理解为 Texture2D Array)
 
 <br><br>
 
@@ -255,7 +267,32 @@ void main()
 }
 
 ```
+>
+- v_id 的取值范围是 0,1,2
+<br><br>
 
+> 当 v_id = 0 的时候
+- vPos.x = float(0 / 2) * 4.0 - 1.0 = -1
+- vPos.y = float(0 % 2) * 4.0 - 1.0 = -1
+<br><br>
+
+> 当 v_id = 1 的时候
+- vPos.x = float(1 / 2) * 4.0 - 1.0 = -1		因为 float(1/2) = 0, 1/2 是int ，所以是 0
+- vPos.y = float(1 % 2) * 4.0 - 1.0 = 3
+<br><br>
+
+> 当 v_id = 2 的时候
+- vPos.x = float(2 / 2) * 4.0 - 1.0 = 3
+- vPos.y = float(2 % 2) * 4.0 - 1.0 = -1
+<br><br>
+
+
+>
+- 参考 [Rendering a Screen Covering Triangle in OpenGL (with no buffers)](https://rauwendaal.net/2014/06/14/rendering-a-screen-covering-triangle-in-opengl/)
+- ![](/img/Eevee/Volumetrics+/01/3.png)
+
+
+<br><br>
 <br><br>
 
 *volumetric_geom.glsl*
@@ -286,6 +323,70 @@ void main() {
 	EndPrimitive();
 }
 ```
+>
+- gl_Layer = slice = int(vPos[0].z); 这里的意思就是，把东西渲染到 3D Texture 的对应的 第几个 Texture 中
+<br><br>
+- 因为 vs 中设置了 vPos.z = float(t_id); t_id 就是对应的第几个三角形
+<br><br>
+- slice = int(vPos[0].z); 在PS中也用到了 slice，对应的是第几个 Texture
+
+
+<br><br>
+
+
+*volumetric_lib.glsl*
+```
+
+/* Based on Frosbite Unified Volumetric.
+ * https://www.ea.com/frostbite/news/physically-based-unified-volumetric-rendering-in-frostbite */
+
+uniform float volume_light_clamp;
+
+uniform vec3 volume_param; /* Parameters to the volume Z equation */
+
+uniform vec2 volume_uv_ratio; /* To convert volume uvs to screen uvs */
+
+/* Volume slice to view space depth. */
+float volume_z_to_view_z(float z)
+{
+	// Perspective Projection
+
+	if (ProjectionMatrix[3][3] == 0.0) {
+		/* Exponential distribution */
+		return (exp2(z / volume_param.z) - volume_param.x) / volume_param.y;
+	}
+	else {
+		/* Linear distribution */
+		return mix(volume_param.x, volume_param.y, z);
+	}
+}
+
+float view_z_to_volume_z(float depth)
+{
+	// Perspective Projection
+
+	if (ProjectionMatrix[3][3] == 0.0) {
+		/* Exponential distribution */
+		return volume_param.z * log2(depth * volume_param.y + volume_param.x);
+	}
+	else {
+		/* Linear distribution */
+		return (depth - volume_param.x) * volume_param.z;
+	}
+}
+
+/* Volume texture normalized coordinates to NDC (special range [0, 1]). */
+vec3 volume_to_ndc(vec3 cos)
+{
+	cos.z = volume_z_to_view_z(cos.z);
+	cos.z = get_depth_from_view_z(cos.z);
+	cos.xy /= volume_uv_ratio;
+	return cos;
+}
+
+```
+>
+- volume_param 参数在下面会看到是怎么计算的
 
 <br><br>
 
@@ -316,6 +417,7 @@ layout(location = 3) out vec4 volumePhase;
 void main()
 {
 	ivec3 volume_cell = ivec3(gl_FragCoord.xy, slice);
+	
 	vec3 ndc_cell = volume_to_ndc((vec3(volume_cell) + volume_jitter) / volumeTextureSize);
 
 	viewPosition = get_view_space_from_depth(ndc_cell.xy, ndc_cell.z);
@@ -330,6 +432,9 @@ void main()
 }
 
 ```
+>
+- volume_to_ndc 的作用就是 把 Volume texture normalized coordinates to NDC ，就是 Texture coordinates 变成 [0, 1]
+
 >
 - 看到 这里  Closure cl = nodetree_exec(), 可以看到是 nodetree 代码生成的，nodetree 的源码在 *source/blender/gpu/shaders/gpu_shader_materials.glsl* 中
 
@@ -359,6 +464,48 @@ void node_volume_absorption(vec4 color, float density, out Closure result)
 ```
 <br><br>
 
+
+#### 4.Shader 参数
+*eevee_effects.c*
+```
+/* Find Froxel Texture resolution. */
+int froxel_tex_size[3];
+
+froxel_tex_size[0] = (int)ceilf(fmaxf(1.0f, viewport_size[0] / (float)tile_size));
+froxel_tex_size[1] = (int)ceilf(fmaxf(1.0f, viewport_size[1] / (float)tile_size));
+froxel_tex_size[2] = max_ii(BKE_collection_engine_property_value_get_int(props, "volumetric_samples"), 1);
+
+volumetrics->volume_coord_scale[0] = viewport_size[0] / (float)(tile_size * froxel_tex_size[0]);
+volumetrics->volume_coord_scale[1] = viewport_size[1] / (float)(tile_size * froxel_tex_size[1]);
+
+...
+
+if (DRW_viewport_is_persp_get()) {
+	const float clip_start = stl->g_data->viewvecs[0][2];
+	/* Negate */
+	float near = volumetrics->integration_start = min_ff(-volumetrics->integration_start, clip_start - 1e-4f);
+	float far = volumetrics->integration_end = min_ff(-volumetrics->integration_end, near - 1e-4f);
+
+	volumetrics->depth_param[0] = (far - near * exp2(1.0f / volumetrics->sample_distribution)) / (far - near);
+	volumetrics->depth_param[1] = (1.0f - volumetrics->depth_param[0]) / near;
+	volumetrics->depth_param[2] = volumetrics->sample_distribution;
+}
+else {
+	const float clip_start = stl->g_data->viewvecs[0][2];
+	const float clip_end = stl->g_data->viewvecs[1][2];
+	volumetrics->integration_start = min_ff(volumetrics->integration_end, clip_start);
+	volumetrics->integration_end = max_ff(-volumetrics->integration_end, clip_end);
+
+	volumetrics->depth_param[0] = volumetrics->integration_start;
+	volumetrics->depth_param[1] = volumetrics->integration_end;
+	volumetrics->depth_param[2] = 1.0f / (volumetrics->integration_end - volumetrics->integration_start);
+}
+```
+>
+- 这里可以看到 volume_param 和 volume_coord_scale 参数是怎么计算的
+
+<br><br>
+
 ### Step 2: Scatter Light
 
 #### 1. volumetric_scat_fb 初始化
@@ -366,6 +513,15 @@ void node_volume_absorption(vec4 color, float density, out Closure result)
 ```
 void EEVEE_effects_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
 {
+	...
+
+	/* Volume scattering: We compute for each froxel the
+	* Scattered light towards the view. We also resolve temporal
+	* super sampling during this stage. */
+	txl->volume_scatter = DRW_texture_create_3D(froxel_tex_size[0], froxel_tex_size[1], froxel_tex_size[2], DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER, NULL);
+	txl->volume_transmittance = DRW_texture_create_3D(froxel_tex_size[0], froxel_tex_size[1], froxel_tex_size[2], DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER, NULL);
+	...
+
 	...
 	DRWFboTexture tex_vol_scat[2] = {&txl->volume_scatter, DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER},
 		                                 {&txl->volume_transmittance, DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER};
@@ -376,6 +532,8 @@ void EEVEE_effects_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
 	...
 }
 ```
+>
+- volume_scatter + volume_transmittance 是 3D Texture
 
 <br>
 
@@ -437,6 +595,8 @@ void EEVEE_effects_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
 ```
 >
 - vs 使用了 volumetric_vert.glsl, gs 使用了 volumetric_geom.glsl，ps 使用了 volumetric_scatter_frag.glsl + volumetric_lib.glsl
+<br><br>
+- 这里使用了 DRW_shgroup_empty_tri_batch_create,也是先把东西渲染到 3D Texture 上
 
 <br><br>
 
@@ -579,6 +739,7 @@ vec3 irradiance_volumetric(vec3 wpos)
 }
 #endif
 
+
 ```
 
 <br>
@@ -680,6 +841,13 @@ void main()
 ```
 void EEVEE_effects_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
 {
+	/* Final integration: We compute for each froxel the
+	* amount of scattered light and extinction coef at this
+	* given depth. We use theses textures as double buffer
+	* for the volumetric history. */
+	txl->volume_scatter_history = DRW_texture_create_3D(froxel_tex_size[0], froxel_tex_size[1], froxel_tex_size[2], DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER, NULL);
+	txl->volume_transmittance_history = DRW_texture_create_3D(froxel_tex_size[0], froxel_tex_size[1], froxel_tex_size[2], DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER, NULL);
+
 	...
 	DRWFboTexture tex_vol_integ[2] = {&txl->volume_scatter_history, DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER},
 		                                  {&txl->volume_transmittance_history, DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER};
@@ -727,8 +895,10 @@ void EEVEE_effects_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
 ```
 >
 - ps 使用了 volumetric_integration_frag.glsl
+<br><br>
+- 这里也是使用 DRW_shgroup_empty_tri_batch_create，把东西渲染到 3D Texture 上
 
-<br>
+<br><br>
 
 #### 3. volumetric_integration_ps Shader
 *volumetric_integration_frag.glsl*
@@ -835,6 +1005,7 @@ void EEVEE_effects_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
 ```
 >
 - ps 使用了 volumetric_resolve_frag.glsl
+- 这里没有使用 DRW_shgroup_empty_tri_batch_create 函数，而是使用了 quad 作为gero
 
 <br><br>
 
