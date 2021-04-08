@@ -37,3 +37,59 @@ To overcome this limitation, a voxelisation should be done on the mesh (generati
 <br><br>
 
 
+### 渲染入口
+
+*eevee_effects.c*
+
+```
+void EEVEE_effects_do_volumetrics(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *vedata)
+{
+	EEVEE_PassList *psl = vedata->psl;
+	EEVEE_TextureList *txl = vedata->txl;
+	EEVEE_FramebufferList *fbl = vedata->fbl;
+	EEVEE_StorageList *stl = vedata->stl;
+	EEVEE_EffectsInfo *effects = stl->effects;
+
+	if ((effects->enabled_effects & EFFECT_VOLUMETRIC) != 0) {
+		DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
+
+		e_data.color_src = txl->color;
+		e_data.depth_src = dtxl->depth;
+
+		/* Step 1: Participating Media Properties */
+		DRW_framebuffer_bind(fbl->volumetric_fb);
+		DRW_draw_pass(psl->volumetric_world_ps);
+		DRW_draw_pass(psl->volumetric_objects_ps);
+
+		/* Step 2: Scatter Light */
+		DRW_framebuffer_bind(fbl->volumetric_scat_fb);
+		DRW_draw_pass(psl->volumetric_scatter_ps);
+
+		/* Step 3: Integration */
+		DRW_framebuffer_bind(fbl->volumetric_integ_fb);
+		DRW_draw_pass(psl->volumetric_integration_ps);
+
+		/* Step 4: Apply for opaque */
+		DRW_framebuffer_bind(fbl->effect_fb);
+		DRW_draw_pass(psl->volumetric_resolve_ps);
+
+		/* Swap volume history buffers */
+		SWAP(struct GPUFrameBuffer *, fbl->volumetric_scat_fb, fbl->volumetric_integ_fb);
+		SWAP(GPUTexture *, txl->volume_scatter, txl->volume_scatter_history);
+		SWAP(GPUTexture *, txl->volume_transmittance, txl->volume_transmittance_history);
+
+		/* Swap the buffers and rebind depth to the current buffer */
+		DRW_framebuffer_texture_detach(dtxl->depth);
+		SWAP(struct GPUFrameBuffer *, fbl->main, fbl->effect_fb);
+		SWAP(GPUTexture *, txl->color, txl->color_post);
+		DRW_framebuffer_texture_attach(fbl->main, dtxl->depth, 0, 0);
+	}
+}
+```
+>
+- 这里最主要是 Step 1: Participating Media Properties 中，多了 DRW_draw_pass(psl->volumetric_objects_ps);
+
+
+### volumetric_objects_ps
+
+#### 1.初始化
