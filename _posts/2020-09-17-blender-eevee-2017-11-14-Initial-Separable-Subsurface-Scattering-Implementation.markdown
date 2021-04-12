@@ -43,6 +43,12 @@ tags:
 
 <br><br>
 
+## 理论
+[这里](http://www.iryoku.com/separable-sss/)
+<br>
+todo
+<br><br>
+
 ### 渲染入口
 
 *eevee_engine.c*
