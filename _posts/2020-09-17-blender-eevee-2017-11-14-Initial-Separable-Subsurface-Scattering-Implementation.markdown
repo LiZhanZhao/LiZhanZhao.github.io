@@ -15,7 +15,7 @@ tags:
 
 - 主要看这个commit
 
-> GIT : 2017/10/27  *   Eevee : Initial Separable Subsurface Scattering implementation. <br> 
+> GIT : 2017/11/14  *   Eevee : Initial Separable Subsurface Scattering implementation. <br> 
 
 > How to use:
 - Enable subsurface scattering in the render options.
