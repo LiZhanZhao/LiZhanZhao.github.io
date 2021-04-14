@@ -15,7 +15,7 @@ tags:
 
 - 主要看这个commit
 
-> GIT : 2017/11/22  *   Eevee : SSS: Add separated Albedo option. <br> 
+> GIT : 2017/11/25  *   Eevee : SSS: Add separated Albedo option. <br> 
 
 >
 This option prevent from automatically blurring the albedo color applied to the SSS.
