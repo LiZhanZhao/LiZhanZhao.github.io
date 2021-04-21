@@ -13,21 +13,38 @@ tags:
 
 ## 来源
 
-- 主要看这个commit
+主要看这个commit
 
 > GIT : 2018/5/25  *   Eevee : LookDev. <br> 
 
-> SVN : 2018/5/28  ....
+> SVN : 2018/5/28  *  Win64_vc14/Windows_vc14 add patches for boost and osl to support building with clang. 
 
 
 <br><br>
+
+## 效果
+
+![](/img/Eevee/LookDev/01/1.png)
+![](/img/Eevee/LookDev/01/2.png)
 
 ## 作用
-LookDev 模式渲染
+分析 LookDev 模式下是如何渲染, 其实主要是多了两个球的渲染
 
 <br><br>
 
-### 渲染
+### EEVEE_materials_cache_xxx 调用
+>
+- EEVEE_materials_cache_init 无论多少个物体，每一帧都只会执行一次
+<br><br>
+- EEVEE_materials_cache_populate 多少个物体，每一帧就执行多少次，类似于遍历物体
+<br><br>
+- EEVEE_materials_cache_finish 无论多少个物体，每一帧都只会执行一次
+<br><br>
+- 先执行 一次 EEVEE_materials_cache_init，再执行多次 EEVEE_materials_cache_populate, 再执行一次 EEVEE_materials_cache_finish
+
+<br><br>
+
+### LookDev 渲染
 
 #### 渲染入口
 *eevee_engine.c*
@@ -80,6 +97,8 @@ void EEVEE_lookdev_draw_background(EEVEE_Data *vedata)
 		params.ortho_scale = 4.0;
 		params.zoom = CAMERA_PARAM_ZOOM_INIT_PERSP;
 		BKE_camera_params_compute_viewplane(&params, ar->winx, ar->winy, 1.0f, 1.0f);
+
+		// 这里是为了计算正交投影矩阵(winmat)
 		BKE_camera_params_compute_matrix(&params);
 
 		const float *viewport_size = DRW_viewport_size_get();
@@ -99,10 +118,14 @@ void EEVEE_lookdev_draw_background(EEVEE_Data *vedata)
 		/* override matrices */
 		float winmat[4][4];
 		float winmat_inv[4][4];
+
+		// 因为上面已经计算了 params.winmat 是正交投影矩阵，这里就利用这个正交矩阵设置为 matrix_override DRW_MAT_WIN + DRW_MAT_WININV
 		copy_m4_m4(winmat, params.winmat);
 		invert_m4_m4(winmat_inv, winmat);
 		DRW_viewport_matrix_override_set(winmat, DRW_MAT_WIN);
 		DRW_viewport_matrix_override_set(winmat_inv, DRW_MAT_WININV);
+
+		// 因为 params.winmat 是正交投影矩阵，这里就修改 VP 矩阵，设置 matrix_override DRW_MAT_PERS + DRW_MAT_PERSINV
 		float viewmat[4][4];
 		DRW_viewport_matrix_get(viewmat, DRW_MAT_VIEW);
 		float persmat[4][4];
@@ -127,12 +150,12 @@ void EEVEE_lookdev_draw_background(EEVEE_Data *vedata)
 <br><br>
 - 注意的是，渲染前会进行 override matrices
 <br><br>
-- 矩阵怎么计算? todo
+- 矩阵怎么计算? 上面的代码注释可以看到，思路就是计算 正交投影矩阵，然后再 DRW_viewport_matrix_override_set,修改 DRW_MAT_WIN + DRW_MAT_WININV + DRW_MAT_PERS + DRW_MAT_PERSINV，也就是 P 矩阵，VP 矩阵
 <br><br>
 
 <br><br>
 
-### lookdev_pass
+### lookdev_pass 渲染两个球
 
 #### 初始化
 *eevee_materials.c*
@@ -201,6 +224,7 @@ void EEVEE_materials_cache_finish(EEVEE_Data *vedata)
 		static float specular = 1.0f;
 		static float roughness = 0.05f;
 
+		// 获得View的逆矩阵
 		float view_mat[4][4];
 		DRW_viewport_matrix_get(view_mat, DRW_MAT_VIEWINV);
 
@@ -209,9 +233,15 @@ void EEVEE_materials_cache_finish(EEVEE_Data *vedata)
 		DRW_shgroup_uniform_float(shgrp, "metallic", &metallic_on, 1);
 		DRW_shgroup_uniform_float(shgrp, "specular", &specular, 1);
 		DRW_shgroup_uniform_float(shgrp, "roughness", &roughness, 1);
+
+		// 单位化
 		unit_m4(mat1);
+		// 乘上View的逆矩阵，其实这个就是相机的世界空间的矩阵
 		mul_m4_m4m4(mat1, mat1, view_mat);
+		// 在相机的世界空间上再进行偏移
 		translate_m4(mat1, -1.5f, 0.0f, -5.0f);
+
+		// mat1 当作 球的 世界矩阵
 		DRW_shgroup_call_add(shgrp, sphere, mat1);
 
 		shgrp = EEVEE_lookdev_shading_group_get(sldata, vedata, false, linfo->shadow_method);
@@ -231,10 +261,9 @@ void EEVEE_materials_cache_finish(EEVEE_Data *vedata)
 >
 - 通过阅读上面的代码可以了解到，lookdev_pass 使用了Shader lit_surface_vert.glsl + default_frag.glsl, 而且定义了 宏 VAR_MAT_LOOKDEV
 <br><br>
-- lookdev_pass 主要负责渲染 两个 sphere
+- 上面代码的意思就是，把两个 sphere 的渲染 添加到 lookdev_pass 中
 <br><br>
-- 球怎么渲染的 todo
-
+- 注释可以看到，sphere 会进行设置世界矩阵，基于camear的世界矩阵来进行偏移
 
 <br><br>
 
@@ -316,3 +345,196 @@ Closure nodetree_exec(void)
 ```
 >
 - eevee_closure_default 定义在 *lit_surface_frag.glsl* 文件里面
+
+<br><br>
+
+
+### 渲染背景
+
+#### background_pass
+
+*eevee_materials.c*
+```
+void EEVEE_materials_init(EEVEE_ViewLayerData *sldata, EEVEE_StorageList *stl, EEVEE_FramebufferList *fbl)
+{
+	...
+	e_data.default_studiolight_background = DRW_shader_create(
+			datatoc_background_vert_glsl, NULL, datatoc_default_world_frag_glsl,
+			"#define LOOKDEV\n");
+	...
+}
+
+void EEVEE_materials_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
+{
+	...
+	/* LookDev */
+	EEVEE_lookdev_cache_init(vedata, &grp, e_data.default_studiolight_background, psl->background_pass, NULL);
+	/* END */
+	...
+}
+```
+
+<br><br>
+
+*eevee_lookdev.c*
+```
+void EEVEE_lookdev_cache_init(EEVEE_Data *vedata, DRWShadingGroup **grp, GPUShader *shader, DRWPass *pass, EEVEE_LightProbesInfo *pinfo)
+{
+	EEVEE_StorageList *stl = vedata->stl;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	View3D *v3d = draw_ctx->v3d;
+	if (v3d && v3d->drawtype == OB_MATERIAL)
+	{
+		StudioLight *sl = BKE_studiolight_find(v3d->shading.studio_light, STUDIOLIGHT_ORIENTATION_WORLD);
+		if ((sl->flag & STUDIOLIGHT_ORIENTATION_WORLD)) {
+			struct Gwn_Batch *geom = DRW_cache_fullscreen_quad_get();
+
+			BKE_studiolight_ensure_flag(sl, STUDIOLIGHT_EQUIRECTANGULAR_GPUTEXTURE);
+			*grp = DRW_shgroup_create(shader, pass);
+			GPUTexture *tex = sl->equirectangular_gputexture;
+			DRW_shgroup_uniform_texture(*grp, "image", tex);
+
+			axis_angle_to_mat3_single(stl->studiolight_matrix, 'Z', v3d->shading.studiolight_rot_z);
+			DRW_shgroup_uniform_mat3(*grp, "StudioLightMatrix", stl->studiolight_matrix);
+
+			DRW_shgroup_uniform_float(*grp, "backgroundAlpha", &stl->g_data->background_alpha, 1);
+			DRW_shgroup_call_add(*grp, geom, NULL);
+
+			/* Do we need to recalc the lightprobes? */
+			if (pinfo && (pinfo->studiolight_index != sl->index || pinfo->studiolight_rot_z != v3d->shading.studiolight_rot_z)) {
+				pinfo->update_world |= PROBE_UPDATE_ALL;
+				pinfo->studiolight_index = sl->index;
+				pinfo->studiolight_rot_z = v3d->shading.studiolight_rot_z;
+				pinfo->prev_wo_sh_compiled = false;
+				pinfo->prev_world = NULL;
+			}
+		}
+	}
+}
+```
+>
+- 看代码可以发现，v3d->drawtype == OB_MATERIAL 这个只会在 lookdev的模式下成立，然后就可以看到 background_pass 用Shader background_vert.glsl + default_world_frag.glsl 组成，并且定义了宏 LOOKDEV
+<br><br>
+- 也就是说，在渲染前，会看看模式是否是 lookdev 来定义 background_pass
+
+<br><br>
+
+#### Shader
+
+*background_vert.glsl*
+```
+in vec2 pos;
+
+out vec3 varposition;
+out vec3 varnormal;
+out vec3 viewPosition;
+
+#ifndef VOLUMETRICS
+/* necessary for compilation*/
+out vec3 worldPosition;
+out vec3 worldNormal;
+out vec3 viewNormal;
+#endif
+
+void main()
+{
+	gl_Position = vec4(pos, 1.0, 1.0);
+	varposition = viewPosition = vec3(pos, -1.0);
+	varnormal = normalize(-varposition);
+}
+
+```
+
+<br><br>
+
+*default_world_frag.glsl*
+```
+#define M_PI 3.14159265358979323846
+
+uniform float backgroundAlpha;
+uniform mat4 ProjectionMatrix;
+uniform mat4 ProjectionMatrixInverse;
+uniform mat4 ViewMatrixInverse;
+#ifdef LOOKDEV
+uniform mat3 StudioLightMatrix;
+uniform sampler2D image;
+in vec3 viewPosition;
+#else
+uniform vec3 color;
+#endif
+
+out vec4 FragColor;
+
+void background_transform_to_world(vec3 viewvec, out vec3 worldvec)
+{
+	vec4 v = (ProjectionMatrix[3][3] == 0.0) ? vec4(viewvec, 1.0) : vec4(0.0, 0.0, 1.0, 1.0);
+	vec4 co_homogenous = (ProjectionMatrixInverse * v);
+
+	vec4 co = vec4(co_homogenous.xyz / co_homogenous.w, 0.0);
+	worldvec = (ViewMatrixInverse * co).xyz;
+}
+
+float hypot(float x, float y)
+{
+	return sqrt(x * x + y * y);
+}
+
+void node_tex_environment_equirectangular(vec3 co, sampler2D ima, out vec4 color)
+{
+	vec3 nco = normalize(co);
+	float u = -atan(nco.y, nco.x) / (2.0 * M_PI) + 0.5;
+	float v = atan(nco.z, hypot(nco.x, nco.y)) / M_PI + 0.5;
+
+	/* Fix pole bleeding */
+	float half_width = 0.5 / float(textureSize(ima, 0).x);
+	v = clamp(v, half_width, 1.0 - half_width);
+
+	/* Fix u = 0 seam */
+	/* This is caused by texture filtering, since uv don't have smooth derivatives
+	 * at u = 0 or 2PI, hardware filtering is using the smallest mipmap for certain
+	 * texels. So we force the highest mipmap and don't do anisotropic filtering. */
+	color = textureLod(ima, vec2(u, v), 0.0);
+}
+
+void main() {
+#ifdef LOOKDEV
+	vec3 worldvec;
+	vec4 color;
+	background_transform_to_world(viewPosition, worldvec);
+	node_tex_environment_equirectangular(StudioLightMatrix * worldvec, image, color);
+#endif
+
+	FragColor = vec4(clamp(color.rgb, vec3(0.0), vec3(1e10)), backgroundAlpha);
+}
+
+```
+
+<br><br>
+
+### 渲染环境图的背景
+
+*eevee_lightprobes.c*
+
+```
+static void lightprobe_shaders_init(void)
+{
+	...
+	e_data.probe_default_studiolight_sh = DRW_shader_create(
+	        datatoc_background_vert_glsl, NULL, datatoc_default_world_frag_glsl, "#define LOOKDEV\n");
+	...
+}
+
+
+void EEVEE_lightprobes_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
+{
+	...
+	/* LookDev */
+	EEVEE_lookdev_cache_init(vedata, &grp, e_data.probe_default_studiolight_sh, psl->probe_background, pinfo);
+	/* END */
+	...
+}
+```
+>
+- 渲染环境球的背景的 probe_background 会也被修改，在 LookDev 的模式下，使用background_vert.glsl + default_world_frag.glsl,也定义了宏 LOOKDEV 
+<br><br>
+- 这样的话，其实就相当于修改了环境图
