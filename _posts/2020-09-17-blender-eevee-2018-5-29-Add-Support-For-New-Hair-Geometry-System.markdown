@@ -17,6 +17,14 @@ tags:
 
 > GIT : 2018/5/29  *   Eevee : Add support for new Hair geometry system. <br> 
 
+> This now can shade actual poly strips that mimics cylinders.
+This makes hair coverage exact compared to the line method and result in
+smoother fading hair.
+
+> This does make the sampling a bit more exact but needs more samples to
+converge properly.
+
+
 > SVN : 2018/5/28  *  Win64_vc14/Windows_vc14 add patches for boost and osl to support building with clang. 
 
 
