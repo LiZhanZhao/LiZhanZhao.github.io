@@ -1,0 +1,24 @@
+---
+layout:     post
+title:      "ShareX"
+subtitle:   ""
+date:       2022-2-15 12:00:00
+author:     "Lzz"
+header-img: "img/post-bg-nextgen-web-pwa.jpg"
+header-mask: 0.3
+catalog:    true
+tags:
+    - Other
+---
+
+
+
+## 下载
+
+
+
+- ShareX 下载 [这里](https://getsharex.com/)
+- 如果用不到 录屏，需要下载 FFmpeg，但是有时候下载不到，可以自行下载 [FFmpeg](https://github.com/ShareX/FFmpeg/releases)
+
+- 下载 FFmpeg的话，直接把 FFmpeg 直接放在 C:\Users\xxx\Documents\ShareX\Tools 下面
+
