@@ -1,0 +1,23 @@
+---
+layout:     post
+title:      "UE 基础入门"
+subtitle:   ""
+date:       2022-5-18 12:00:00
+author:     "Lzz"
+header-img: "img/post-bg-nextgen-web-pwa.jpg"
+header-mask: 0.3
+catalog:    true
+tags:
+    - UE
+---
+
+
+### 修复缓存路径
+- 默认的缓存路径为 C:\Users\xxx\AppData\Local\UnrealEngine\Common\DerivedDataCache
+
+- 打开你要修改的引擎的目录，例如 ：
+D:\Epic Games\UE_4.26\Engine\Config, 找到BaseEngine.ini
+
+- 找到 [InstalledDerivedDataBackendGraph] 条目下的  Local=(Type=FileSystem, ReadOnly=false, Clean=false, Flush=false, PurgeTransient=true, DeleteUnused=true, UnusedFileAge=34, FoldersToClean=-1, Path="%ENGINEVERSIONAGNOSTICUSERDIR%DerivedDataCache", EditorOverrideSetting=LocalDerivedDataCache) 
+
+- Path = “%ENGINEVERSIONAGNOSTICUSERDIR%DerivedDataCache”  改成 “%GAMEDIR%DerivedDataCache”
