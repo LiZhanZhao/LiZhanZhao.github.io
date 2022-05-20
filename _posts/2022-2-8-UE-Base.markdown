@@ -40,4 +40,15 @@ D:\Epic Games\UE_4.26\Engine\Config, 找到BaseEngine.ini
 - Ctrl + Alt + 左键
 
 
-### 
+### 复制模型
+- 选中物体 ， Alt + 轴移动
+
+### 迁移
+- Intermediate 目录 缓存 文件目录
+- Save 目录 自动保存文件目录
+
+- 对 目录 右键 -> 迁移 -> 选路径，一定要选择其他项目中 Content 目录下面
+
+- 对 资源 右键 -> 资源操作 -> 迁移 -> 选路径，一定要选择其他项目中 Content 目录下面
+
+
