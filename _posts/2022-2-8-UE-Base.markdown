@@ -21,3 +21,23 @@ D:\Epic Games\UE_4.26\Engine\Config, 找到BaseEngine.ini
 - 找到 [InstalledDerivedDataBackendGraph] 条目下的  Local=(Type=FileSystem, ReadOnly=false, Clean=false, Flush=false, PurgeTransient=true, DeleteUnused=true, UnusedFileAge=34, FoldersToClean=-1, Path="%ENGINEVERSIONAGNOSTICUSERDIR%DerivedDataCache", EditorOverrideSetting=LocalDerivedDataCache) 
 
 - Path = “%ENGINEVERSIONAGNOSTICUSERDIR%DerivedDataCache”  改成 “%GAMEDIR%DerivedDataCache”
+
+- 这样操作下来就变成了在工程的DerivedDataCache目录进行缓存资源，而不是在C:\Users\xxx\AppData\Local\UnrealEngine\Common\DerivedDataCache 这里缓存资源
+
+### 视口导航
+- 围绕单个的支点或兴趣点翻转视口 : F 键 是聚焦, Alt + 鼠标左键 + 拖动
+- 导航 ： 按住鼠标右键 + WASD键
+
+### 轴向
+- 角色面对的方向 X 轴
+- 角色左右的方向 Y 轴
+- 角色上下的方向 Z 轴
+
+### 单位
+- Unreal 的单位是 ***厘米***
+
+### 框选
+- Ctrl + Alt + 左键
+
+
+### 
