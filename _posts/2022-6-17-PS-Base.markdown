@@ -1,0 +1,23 @@
+---
+layout:     post
+title:      "PhotoShop 基础入门"
+subtitle:   ""
+date:       2022-6-17 12:00:00
+author:     "Lzz"
+header-img: "img/post-bg-nextgen-web-pwa.jpg"
+header-mask: 0.3
+catalog:    true
+tags:
+    - Other
+---
+
+
+## 基础
+
+### 移动工具 + 图层
+- 复制图层：Ctrl+j
+- 恢复到上一步：Ctrl+Z
+
+### 矩形选框工具组
+- 取消选择：Ctrl+D
+- 删除选区:选中选区Delete
