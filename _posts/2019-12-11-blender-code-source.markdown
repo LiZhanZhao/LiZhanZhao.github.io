@@ -16,7 +16,7 @@ tags:
 
   
 ## 源码在哪里？
-blender的源码在 [这里](https://github.com/sobotka/blender) 可以进行 Git Clone，下面在Window下进行编译源码。
+blender的源码在 [这里](https://github.com/blender/blender) 可以进行 Git Clone，下面在Window下进行编译源码。
 
 
 ## 最新版本blender的编译
@@ -61,3 +61,20 @@ blender的源码在 [这里](https://github.com/sobotka/blender) 可以进行 Gi
 [blender material 分析](https://www.blenderguru.com/articles/cycles-shader-encyclopedia)
 
 
+
+## 2022-10-24 更新
+### 参考官方文档
+[Building Blender on Windows](https://wiki.blender.org/wiki/Building_Blender/Windows)
+
+### 准备软件
+- 安装Git，配置好SSH
+- 先安装 vs2019 ~ 2022
+- 安装Cmake
+
+### 命令
+- 进入blender目录，cmd 命令窗口，直接执行 make update 来检查是否有依赖库，检查依赖库就是检查blender同一级的目录下是否有lib目录，lib目录来源于 svn ：
+ https://svn.blender.org/svnroot/bf-blender/trunk/lib/win64_vc15
+后者
+https://svn.blender.org/svnroot/bf-blender/tags/blender-3.3-release/lib/win64_vc15
+<br><br>
+- 进入blender目录，cmd 命令窗口，直接执行 make ，会生成 build_windows_Full_x64_vc16_Release 目录 ，这个目录会有 blender.sln, 就可以开始编译源码额，先执行INSTALL，在运行blender
