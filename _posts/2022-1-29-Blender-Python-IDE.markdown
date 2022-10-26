@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Blender Python IDE"
+title:      "Blender Python"
 subtitle:   ""
 date:       2022-1-28 12:00:00
 author:     "Lzz"
@@ -10,6 +10,27 @@ catalog:    true
 tags:
     - blender Python
 ---
+
+## 记录
+- 在Blender 的 Info 窗口 可以获得每一个操作的api命令，直接ctrl + C 就可以复制  
+<br>
+
+- 例如 bpy.ops.mesh.primitive_cube_add(enter_editmode=False, align='WORLD', location=(0.871533, -1.3445, -2.69168), scale=(1, 1, 1))  
+<br>
+
+- 删除Info 窗口 的信息， A 全选，X 删除  
+<br>
+
+- 在 python console 窗口中，Console -> AutoComplete 可以自动补全命令参数，例如输入 ：
+"bpy.ops.mesh.primitive_cube_add(", <br>  就会补全   <br>"primitive_cube_add()
+bpy.ops.mesh.primitive_cube_add(size=2, calc_uvs=True, enter_editmode=False, align='WORLD', location=(0, 0, 0), rotation=(0, 0, 0), scale=(0, 0, 0))
+Construct a cube mesh"
+<br>  
+也可以使用 "bpy." 自动补全就可以出现后面  
+<br>
+
+- 在 Blender 的 Text Editor 窗口 Print 东西，可以在 Window -> Toggle System Console 看输出
+
 
 
 
