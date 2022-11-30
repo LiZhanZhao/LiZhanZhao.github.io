@@ -1,0 +1,91 @@
+---
+layout:     post
+title:      "Substance Designer 入门总结"
+subtitle:   ""
+date:       2022-11-16 12:00:00
+author:     "Lzz"
+header-img: "img/post-bg-nextgen-web-pwa.jpg"
+header-mask: 0.3
+catalog:    true
+tags:
+    - 3dsmax
+---
+## 参考教程
+- [创建你的第一个SD材质球 官方教程合集 中文字幕](https://www.bilibili.com/video/BV1D54y1Q7P3/?spm_id_from=333.999.0.0)
+<br><br>
+
+## 基础概念
+
+- Substance Designer 是一个用来创造贴图的应用程序
+<br><br>
+- Graph节点，Graph 节点例如 Generators -> Noises 里面的节点，可以右键 -> open reference 打开，就可以看到这一些 Graph 节点 由很多节点组成
+<br><br>
+- atomic 节点，按下空格可以弹出 atomic 节点 列表，atomic 节点是 SD的重要内核， 这一些hardcode并不是图形类节点，atomic 这一类节点就不是graph
+<br><br>
+- graph 可以放在另一个 graph 中使用
+<br><br>
+- Substance package 实际上是什么，它实际上是substance Designer 的源文件，并且，他是以sbs为后缀的文件，如果我们把这个软件当做
+Photoshop 来理解，就像 ps 中后缀为psd 的文件，并且在这个ps源文件中会有层层堆积的图层，现在，从sd的角度来看的话，一个 Substance 
+package 后缀为 sbs 的话，它就是源文件，在这个源文件中，有一个graph，有点像堆积起来的图层和photoshop的关系，但是不同的是，
+在这里面不是堆叠起来的图层，而是一个需要我们加以处理的，由很多节点组成的graph，当然，一个 substance package 可以包含多个 Graph
+
+## 3D view 
+
+- 左键拖动 = 旋转， 中键 = 平移视图， 右键上下移动 = 放大缩小视图
+<br><br>
+- 可以在 3d View 设置mesh，例如 材质 Scene -> plan
+<br><br>
+- 可以在 3d View 设置材质， 例如 菜单 Material -> Default -> physically metallic roughness [Default] -> Tess.. 
+<br><br>
+- 可以在 3d Viewq 里面设置 Enviroment，环境光， 菜单 Enviroment -> Edit 
+<br><br>
+- 环境光 用 shift + ctrl + 鼠标右键按住左右移动，旋转环境图
+<br><br>
+- 直接在 Library 里面的 3D View 里面 有 HDRI Environments ，直接把环境图拖到 3D View 里面就可以实现换环境图了
+
+
+## 创建节点
+
+- 按下空格或者tab建可以创建节点，这些节点称为 运行节点(operatial node) 或者是 原始节点(atomic mode)
+<br><br>
+- 双击节点的输出，就可以在 2D View 里面看到输出
+<br><br>
+- 如果创建了一个 base material 的话，可以直接右键拖动这个节点到 3d view 上，让3d view 的mesh 关联这个 节点效果
+<br><br>
+- 折叠节点的输出，可以按键盘的 1，2，3 来切换，英文是 Link Creation mode
+<br><br>
+- 2D View  alt + 右键 上下可以缩放视图
+<br><br>
+- 在Graph 中引用的每一个节点，默认情况下，他们会自动titling，四方连续，在2D view 中，可以 按下 空格键，就可以产看节点的四方连续
+
+
+## Base Material 设置 输入
+
+- 在 Instance Parameters 里面有一个 User - Defined Maps，可以对 BaseColor 或者 Normal 或者 Roughness 等进行设置输入
+
+## Graph 操作
+ - 按照 Shift 之后，点击拖拉输入或者输出端口，可以直接更改连线
+<br><br>
+ - Shift + alt , 选中了线，可以进行中断，类似UE的双击 线 的行为
+
+## 节点
+
+- blend 混合节点
+<br><br>
+- Level 节点 控制 黑白范围的输出，类似于 Ramp
+<br><br>
+- dirt 节点， 是一种 Noises
+<br><br>
+- blur 模糊节点
+<br><br>
+- grunge 节点，脏东西noise 节点
+<br><br>
+- Shape 形状节点
+<br><br>
+- Warp 扭曲节点
+<br><br>
+- slope blur grayscale ，结构模糊，类似 切割 mesh ，创建不同的整体结构
+<br><br>
+- shape splatter ，散点
+<br><br>
+- crop 节点 切割图像，类似宇九宫格图像切割某一块出来
