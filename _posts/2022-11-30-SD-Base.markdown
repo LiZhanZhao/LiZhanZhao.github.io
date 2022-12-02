@@ -89,3 +89,13 @@ package 后缀为 sbs 的话，它就是源文件，在这个源文件中，有�
 - shape splatter ，散点
 <br><br>
 - crop 节点 切割图像，类似宇九宫格图像切割某一块出来
+<br><br>
+- GradientMap 类似Ramp节点
+<br><br>
+- Curvature Smooth 节点，利用normal 生成 曲率
+<br><br>
+- Highpass Grayscale 平衡色调
+<br><br>
+- PBR Utilities 来判断 pbr 是安全的,取值范围 符合 PBR safe 指南
+<br><br>
+- Direction Warp 方向扭曲
