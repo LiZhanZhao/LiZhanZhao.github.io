@@ -8,7 +8,7 @@ header-img: "img/post-bg-nextgen-web-pwa.jpg"
 header-mask: 0.3
 catalog:    true
 tags:
-    - 3dsmax
+    - Other
 ---
 ## 参考教程
 - [创建你的第一个SD材质球 官方教程合集 中文字幕](https://www.bilibili.com/video/BV1D54y1Q7P3/?spm_id_from=333.999.0.0)
