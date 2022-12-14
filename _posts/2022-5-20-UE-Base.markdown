@@ -45,6 +45,7 @@ D:\Epic Games\UE_4.26\Engine\Config, 找到BaseEngine.ini
 
 ### 迁移
 - Intermediate 目录 缓存 文件目录
+
 - Save 目录 自动保存文件目录
 
 - 对 目录 右键 -> 迁移 -> 选路径，一定要选择其他项目中 Content 目录下面
@@ -52,3 +53,40 @@ D:\Epic Games\UE_4.26\Engine\Config, 找到BaseEngine.ini
 - 对 资源 右键 -> 资源操作 -> 迁移 -> 选路径，一定要选择其他项目中 Content 目录下面
 
 
+
+### GamePLay框架之GameMode
+
+- 在打游戏时，游戏中会有很多的模式，在做游戏时也要考虑不同的游戏模式。如吃鸡游戏中，有在游戏进行时的模式，也有游戏大厅的模式；在CF中有团战模式、个人竞技模式、爆破模式等。GameMode就是指这些模式，可以认为每个GameMode就是一种我们创建的模式。
+
+- 在特定的游戏模式下，比如我们自己创建的我们的BP_MyGameMode下会有六个方面的属性来设置，分别如下：
+
+- Pawn Class:英语翻译为棋子，就是在游戏中的对象。在游戏中，我们会操控一个游戏对象，通过对象来触发事件的发生。比如在吃鸡游戏中，一个Pawn就是一个人物模型，注意，本类就是定义人物模型及其属性，但是操控本对象，比如射击、抛雷、开车等行为的定义，并不是在本类中完成。在创建Pawn类时可直接继承Pawn父类。
+
+- HUD Class: 在这里会创建一个UI管理器，在这个管理器中还会去管理其他UI。比如在吃鸡游戏中，在大厅中，商城的显示等；正常情况下，UI的创建就是在这里。
+
+- Player Controller Class:在Pawn中，创建了对象模型，在吃鸡游戏中就是一个人物对象。那么操控人物对象，比如进行射击、跑步等动作，是在Controller Class中完成。也就是，Controller是玩家控制器，控制游戏对象进行动作和操作。在创建Controller时可选择继承自character和pawn父类。当controller定义的操控行为有很多复杂属性，比如射击、运动等，则会继承自character父类；如果是塔防游戏，操控人物相对简单，为了轻便化，则会继承自pawn父类。
+
+- Game State Class: 游戏的状态类，比如本局游戏的得分、战场剩余人数等。
+
+- Player State Class: 游戏中对象的状态类，比如人物的剩余HP，击杀数，被杀数等。
+
+- Spectator Class：游戏中观战者类，比如在吃鸡游戏中的上帝视角就是本类对象创建和操控。
+
+ 
+- 在GameMode之外，还有一个GameInstance，这是一个全局的单例，这个单例会在游戏项目开始运行时创建，直到游戏结束时销毁，可以用作记录游戏中的状态值。
+
+- 以CF的团队竞技威力，在每次团队竞技开始时，游戏中各个属性的参数值都会被初始化到最初状态，这在游戏中是自动完成的，但是有时，我们需要将上局游戏结束时人物的状态作为下局游戏开始时的状态，那么该怎么解决呢? 方法一：可以将人物的状态记录到GameInstance中； 方法二：可以每次游戏结束时将状态推送到服务器上，在游戏开始时从服务器上读取状态。
+
+
+### 理解pawn、character、controller三者之间的联系
+
+- pawn类继承自Actor，在国际象棋中pawn意味着卒、兵，没有生命的一个Actor,在pawn的源码中，相当于一个被控制的角色，这个角色可以是死的，活的，不具有生命特性的，它能够被controller控制，这个controller可以是玩家，也可以是AIcontroller。
+
+- character类代表角色，继承自pawn，它提供了一个特殊的组件charactermovement,这个组件提供了一个基础的基于胶囊体的角色移动功能，更多的用具有生命属性，移动属性的功能。如果你的功能十分简单不需要移动属性，就不用继承自character。
+
+- controller类控制器，顾名思义，就是玩家控制角色的一个类，这个类可以是player controller,也可以是AIController,它是控制角色移动，发出命令的核心，有了这个控制器，才能进行绑定输入，转化成对pawn和character的指令。
+
+- 三者之间，在使用过程中如果需要角色移动属性，就使用character类，如果没有移动属性，就使用pawn,如果说pawn/character是肉体，而controller是操作pawn和character的灵魂。
+
+### 关卡蓝图
+- 每一个关卡都可以有自己的蓝图，在 工具栏 -> Blurprints -> open level Blurprints 就可以打开
