@@ -14,13 +14,15 @@ tags:
 ## 参考
 [这里](https://zhuanlan.zhihu.com/p/107516361)
 
-## github 下载
-[这里](https://github.com/EpicGames/UnrealEngine)
+## 步骤
+- github 下载，[这里](https://github.com/EpicGames/UnrealEngine)
+<br><br>
+- 双击Setup.bat。开始下载
+<br><br>
+- 点击GenerateProjectFiles.bat
+<br><br>
+- 然后会出现这个UEx.sln 双击打开
+<br><br>
+- 在引擎的这个目录下D:\UnrealEngine-4.24\Engine\Binaries\Win64 找到 UnrealEditor.exe
+<br><br>
 
-## 双击Setup.bat。开始下载
-
-## 点击GenerateProjectFiles.bat
-
-## 然后会出现这个UEx.sln 双击打开
-
-## 在引擎的这个目录下D:\UnrealEngine-4.24\Engine\Binaries\Win64 找到 UnrealEditor.exe
