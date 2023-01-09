@@ -26,3 +26,12 @@ tags:
 - 在引擎的这个目录下D:\UnrealEngine-4.24\Engine\Binaries\Win64 找到 UnrealEditor.exe
 <br><br>
 
+
+## Sln 添加命令行参数，直接运行项目
+- UE4 右键 属性
+- 调试 -> 命令参数 添上 
+- 例如 ：E:\ue_study\ue_study.uproject
+
+## Deferred 的渲染入口
+- UnrealEngine\Engine\Source\Runtime\Renderer\Private\DeferredShadingRenderer.cpp
+- void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList) 函数
