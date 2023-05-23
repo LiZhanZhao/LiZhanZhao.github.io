@@ -1,0 +1,37 @@
+---
+layout:     post
+title:      "UE4 源码引擎+编译"
+subtitle:   ""
+date:       2023-1-3 12:00:00
+author:     "Lzz"
+header-img: "img/post-bg-nextgen-web-pwa.jpg"
+header-mask: 0.3
+catalog:    true
+tags:
+    - UE
+---
+
+## 参考
+[这里](https://zhuanlan.zhihu.com/p/107516361)
+
+## 步骤
+- github 下载，[这里](https://github.com/EpicGames/UnrealEngine)
+<br><br>
+- 双击Setup.bat。开始下载
+<br><br>
+- 点击GenerateProjectFiles.bat
+<br><br>
+- 然后会出现这个UEx.sln 双击打开
+<br><br>
+- 在引擎的这个目录下D:\UnrealEngine-4.24\Engine\Binaries\Win64 找到 UnrealEditor.exe
+<br><br>
+
+
+## Sln 添加命令行参数，直接运行项目
+- UE4 右键 属性
+- 调试 -> 命令参数 添上 
+- 例如 ：E:\ue_study\ue_study.uproject
+
+## Deferred 的渲染入口
+- UnrealEngine\Engine\Source\Runtime\Renderer\Private\DeferredShadingRenderer.cpp
+- void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList) 函数

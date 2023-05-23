@@ -7,10 +7,18 @@ author:     "Lzz"
 header-img: "img/post-bg-nextgen-web-pwa.jpg"
 header-mask: 0.3
 catalog:    true
+typora-root-url: ../
 tags:
     - Other
 ---
+---
+
+
+
+---
+
 ## Subsurface Scattering 效果
+
 ![](/img/SP/Jade.png)
 
 ## 官网资料
