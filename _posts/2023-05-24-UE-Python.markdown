@@ -1,8 +1,8 @@
 ---
 layout:     post
-title:      "UE Python 记录"
+title:      "UE Runtime Python 开发"
 subtitle:   ""
-date:       2023-05-24 12:00:00
+date:       2023-07-03 12:00:00
 author:     "Lzz"
 header-img: "img/post-bg-nextgen-web-pwa.jpg"
 header-mask: 0.3
@@ -15,4 +15,97 @@ tags:
 
 
 
-# UE 中使用Python
+
+>目前使用的是 UE 4.26.2版本，由于 python只能在editor上使用，对于一些 Runtime Python 开发并不支持，所有就用其他的插件来实现 Runtime Python
+
+
+
+# 插件下载
+
+- [UnrealEnginePython](https://github.com/20tab/UnrealEnginePython) 这个插件只能支持4.25以下的
+- [UE5.0使用Unreal Engine Python插件进行Runtime Python开发](https://fma.wiki/d/159-ue5-ue50unreal-engine-pythonruntime-python) 这个插件可以支持到 ue5.0
+
+
+
+
+
+## 安装的流程
+
+- create a Plugins/ directory (if it does not exist) in your project and copy the directory UnrealEnginePython into it
+- from the file explorer right click on the project main file and choose 'generate visual studio project files'
+- open visual studio, you should now see Plugins/UnrealEnginePython in your solution explorer
+- run the compilation from visual studio
+- once the compilation ends, double check the python libraries can be found by the plugin (they must be in the system PATH like previously described, or brutally copy them in the Binaries/Win64 directory of the just built plugin)
+- now you can re-run the unreal engine editor
+
+
+
+## 案例 ：创建一个Python 的蓝图类
+
+- 在蓝图类里面选择 'PyActor'
+
+- 在 Content 目录下 'Scripts' 新建  funnygameclasses.py
+
+  ```python
+  import unreal_engine as ue
+  
+  ue.log('Hello i am a Python module')
+  
+  class Hero:
+  
+      # this is called on game start
+      def begin_play(self):
+          ue.log('Begin Play on Hero class')
+          
+      # this is called at every 'tick'    
+      def tick(self, delta_time):
+          # get current location
+          location = self.uobject.get_actor_location()
+          # increase Z honouring delta_time
+          location.z += 100 * delta_time
+          # set new location
+          self.uobject.set_actor_location(location)
+  ```
+
+
+
+- PyActor 蓝图类里面的 'Python Module'  填入 'funnygameclasses'， 'Python Class' 填入  'Hero'
+
+- 往PyActor 添加一个几何体，点击播放就可以看到几何体运动起来了
+
+
+
+
+
+## 案例 ：类绑定
+
+```python
+class Ball:
+
+    def begin_play(self):
+        self.uobject.bind_event('OnActorBeginOverlap', self.manage_overlap)
+        self.uobject.bind_action('Jump', ue.IE_PRESSED, self.uobject.jump)
+        self.uobject.bind_key('K', ue.IE_PRESSED, self.you_pressed_K)
+        self.uobject.bind_axis('MoveForward', self.move_forward)
+        
+    def manage_overlap(self, me, other):
+        ue.print_string('overlapping ' + other.get_name())
+        
+    def you_pressed_K(self):
+        ue.log_warning('you pressed K')
+        
+     def move_forward(self, amount):
+        ue.print_string('axis value: ' + str(amount))
+```
+
+
+
+- 蓝图类需要设置 细节面板上的 Auto Receive Input  为 Play 0 才可以正常运行
+- bind_action 和 bind_axis 可以在 Project Setting -> Engine -> Input 面板中进行设置
+
+
+
+
+
+
+
