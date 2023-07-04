@@ -1,8 +1,8 @@
 ---
 layout:     post
-title:      "Python 基础总结"
+title:      "流畅的Python的学习记录"
 subtitle:   ""
-date:       2021-12-08 12:00:00
+date:       2023-07-04 12:00:00
 author:     "Lzz"
 header-img: "img/post-bg-nextgen-web-pwa.jpg"
 header-mask: 0.3
@@ -10,6 +10,266 @@ catalog:    true
 tags:
     - Python
 ---
+
+
+
+# 流畅的Python的学习记录
+
+
+
+## 1.0 特殊方法
+
+- 如何理解 ：Python 解释器碰到特殊的句法时，会使用特殊方法去激活一些基本的对象操作，这些特殊方法的名字以两个下划线开头，以两个下划线结尾（例如 __getitem__）。比如 obj[key]的背后就是 `__getitem__` 方法，为了能求得 my_collection[key] 的值，解释器实际上会调用 my_collection.`__getitem__`(key)。
+
+
+
+## 1.1 特殊方法的案例 1
+
+接下来我会用一个非常简单的例子来展示如何实现 ```__getitme__``` 和 `__len__` 这两个特殊方法，通过这个例子我们也能见识到特殊方法的强大。
+
+
+
+**示例 1-1 里的代码建立了一个纸牌类**
+
+```python
+import collections
+Card = collections.namedtuple('Card', ['rank', 'suit'])
+class FrenchDeck:
+	ranks = [str(n) for n in range(2, 11)] + list('JQKA')
+	suits = 'spades diamonds clubs hearts'.split()
+	def __init__(self):
+		self._cards = [Card(rank, suit) for suit in self.suits
+										for rank in self.ranks]
+	def __len__(self):
+		return len(self._cards)
+	def __getitem__(self, position):
+		return self._cards[position]
+```
+
+
+
+- 我们用 **collections.namedtuple** 构建了一个简单的类来表示一张纸牌。自 Python 2.6 开始，namedtuple 就加入到 Python 里，用以**构建只有少数属性但是没有方法的对象**，比如**数据库条目**。如下面这个控制台会话所示，利用 namedtuple，我们可以很轻松地得到一个纸牌对象：
+
+  \>>> beer_card = Card('7', 'diamonds')
+
+  \>>> beer_card
+
+  Card(rank='7', suit='diamonds')
+
+
+
+- 可以用 len() 函数来查看一叠牌有多少张, 其实就是调用`__len__` 函数：
+
+  \>>> deck = FrenchDeck()
+
+  \>>> len(deck)
+
+  52
+
+  
+
+- 比如说第一张或最后一张，是很容易的：deck[0] 或 deck[-1]。这都是由  `__getitem__` 方法提供的：
+
+  \>>> deck[0]
+
+  Card(rank='2', suit='spades')
+
+  \>>> deck[-1]
+
+  Card(rank='A', suit='hearts')
+
+
+
+- Python 已经内置了从一个序列中随机选出一个元素的函数 random.choice，我们直接把它用在这一摞纸牌实例上就好：（调用 `__getitem__` ）
+
+  \>>> from random import choice
+
+  \>>> choice(deck)
+
+  Card(rank='3', suit='hearts')
+
+  \>>> choice(deck)
+
+  Card(rank='K', suit='spades')
+
+  \>>> choice(deck)
+
+  Card(rank='2', suit='clubs')
+
+
+
+- 列出了查看一摞牌最上面 3 张和只看牌面是 A 的牌的操作。其中第二种操作的具体方法是，先抽出索引是 12 的那张牌，然后**每隔 13 张牌拿 1 张**：**(start : end : step)**
+
+  \>>> deck[:3]   (取 [0,1,2])
+
+  [Card(rank='2', suit='spades'), Card(rank='3', suit='spades'),
+
+  Card(rank='4', suit='spades')]
+
+  \>>> deck[12::13]    (从12开始取到最后，但是要隔13张取一次)
+
+  [Card(rank='A', suit='spades'), Card(rank='A', suit='diamonds'),
+
+  Card(rank='A', suit='clubs'), Card(rank='A', suit='hearts')]
+
+
+
+- 仅仅实现了 `__getitem__` 方法，这一摞牌就变成可**迭代**的了
+
+  \>>> for card in deck:
+
+  ​		print(card)
+
+  Card(rank='2', suit='spades')
+
+  Card(rank='3', suit='spades')
+
+  Card(rank='4', suit='spades')
+
+  ...
+
+  
+
+- **反向迭代**也没关系：
+
+  \>>> for card in reversed(deck): 
+
+  ​		 print(card)
+
+  Card(rank='A', suit='hearts')
+
+  Card(rank='K', suit='hearts')
+
+  Card(rank='Q', suit='hearts')
+
+  ...
+
+
+
+- 迭代通常是隐式的，譬如说一个集合类型没有实现 `__contains__` 方法，那么 **in 运算符**就会按顺序做一次迭代搜索。于是，**in 运算符**可以用在我们的 FrenchDeck 类上，因为它是可迭代的：（也就是说，如果没有实现`__contains__` 方法，那么 **in 运算符** 就迭代判断，会迭代调用 `__getitem__` 来取数值 ）
+
+  \>>> Card('Q', 'hearts') in deck
+
+  True
+
+  \>>> Card('7', 'beasts') in deck
+
+  False
+
+
+
+- **排序**，我们按照常规，用点数来判定扑克牌的大小，2 最小、A最大；同时还要加上对花色的判定，黑桃最大、红桃次之、方块再次、梅花最小。下面就是按照这个规则来给扑克牌排序的函数，梅花 2 的大小是 0，黑桃 A 是 51： （**每一张牌可以代表一个数字，梅花 2的数值是0， 黑桃 A 的数值是 51**）
+
+  ```python
+  suit_values = dict(spades=3, hearts=2, diamonds=1, clubs=0)
+  def spades_high(card):
+  	rank_value = FrenchDeck.ranks.index(card.rank)
+  	return rank_value * len(suit_values) + suit_values[card.suit]
+  
+  for card in sorted(deck, key=spades_high): # doctest: +ELLIPSIS
+  	print(card)
+      
+  输出 ：
+  Card(rank='2', suit='clubs')
+  Card(rank='2', suit='diamonds')
+  Card(rank='2', suit='hearts')
+  ... (46 cards ommitted)
+  Card(rank='A', suit='diamonds')
+  Card(rank='A', suit='hearts')
+  Card(rank='A', suit='spades')
+  ```
+
+  
+
+
+
+## 1.2 如何使用特殊方法
+
+首先明确一点，特殊方法的存在是为了被 Python 解释器调用的，**你自己并不需要调用它们**。也就是说没有 my_object.`__len__`() 这种写法，而应该使用 len(my_object)。在执行 len(my_object) 的时候，如果my_object 是一个自定义类的对象，那么 Python 会自己去调用其中由你实现的 `__len__` 方法。
+
+
+
+**通常你的代码无需直接使用特殊方法**。除非有大量的元编程存在，直接调用特殊方法的频率应该远远低于你去实现它们的次数。唯一的例外可能是 `__init__` 方法，你的代码里可能经常会用到它，目的是在你自己的子类的 `__init__` 方法中调用超类的构造器。
+
+
+
+## 1.3 特殊方法的案例 2
+
+​	**示例 1-2 一个简单的二维向量类**
+
+```python
+from math import hypot
+class Vector:
+	def __init__(self, x=0, y=0):
+		self.x = x
+		self.y = y
+	def __repr__(self):
+		return 'Vector(%r, %r)' % (self.x, self.y)
+	def __abs__(self):
+		return hypot(self.x, self.y)
+    def __bool__(self):
+		return bool(abs(self))
+	def __add__(self, other):
+		x = self.x + other.x
+		y = self.y + other.y
+		return Vector(x, y)
+	def __mul__(self, scalar):
+		return Vector(self.x * scalar, self.y * scalar)
+```
+
+- Python 有一个内置的函数叫 repr，它能把一个对象用字符串的形式表达出来以便辨认，这就是“字符串表示形式”。repr 就是通过 **`__repr__`**这个特殊方法来得到一个对象的字符串表示形式的。如果没有实现
+
+  **`__repr__`**，当我们在控制台里打印一个向量的实例时，得到的字符串可能会是 <Vector object at 0x10e100070>。 例如：（控制台里打印一个向量的实例的时候，会调用 repr函数，repr函数会调用`__repr__`）
+
+  
+
+  v1 = Vector(2, 4)
+
+  v2 = Vector(2, 1)
+
+  print(v1 + v2)
+
+  输出：Vector(4, 5)
+
+
+
+- 同样，str.format 函数所用到的新式字符串格式化语法也用到了 repr 函数
+
+  
+
+- `__repr__` 和 `__str__` 的区别在于，后者是在 str() 函数被使用，或是在用 print 函数打印一个对象的时候才被调用的，并且它返回的字符串对终端用户更友好。如果一个对象没有 `__str__` 函数，而 Python 又需要调用它的时候，解释器会用 `__repr__` 作为替代
+
+
+
+- 通过 `__add__` 和 `__mul__`，示例 1-2 为向量类带来了 + 和 * 这两个算术运算符。
+
+
+
+- bool(x) 的背后是调用x.`__bool__`() 的结果；如果不存在 `__bool__` 方法，那么 bool(x) 会
+
+  尝试调用 x.`__len__`()。若返回 0，则 bool 会返回 False；否则返回True。
+
+
+
+- Python 语言参考手册中的“DataModel”（https://docs.python.org/3/reference/datamodel.html）一章列出了83 个特殊方法的名字，其中 47 个用于实现算术运算、位运算和比较操作。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -32,6 +292,8 @@ tags:
 - ```python
 #!/usr/bin/python3  
   
+  ```
+
 print("Hello, World!")
   ```
 
@@ -61,7 +323,7 @@ print("Hello, World!")
 
 ### 注释
 
-```python
+​```python
 #!/usr/bin/python3
  
 # 第一个注释
@@ -77,7 +339,7 @@ print("Hello, World!")
 第六注释
 """
 print ("Hello, Python!")
-```
+  ```
 
 
 
